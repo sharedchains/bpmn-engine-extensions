@@ -9,6 +9,7 @@ module.exports = function FormKey(activityElement, {environment}) {
 
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
 
+  console.warn('FormKey');
   return {
     id,
     type,

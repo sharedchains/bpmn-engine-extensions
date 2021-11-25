@@ -4,7 +4,7 @@ const Debug = require('debug');
 const Parameter = require('./Parameter');
 const getNormalizedResult = require('./getNormalizedResult');
 
-module.exports = function Connector(connector, parentContext) {
+module.exports = function Connector(connector, activityElement, parentContext) {
   const type = connector.$type;
   const name = connector.connectorId;
   const {environment} = parentContext;
@@ -12,6 +12,7 @@ module.exports = function Connector(connector, parentContext) {
 
   let inputParameters, outputParameters;
 
+  debug('******* connector: %o', connector)
   if (connector.inputOutput) {
     if (connector.inputOutput.inputParameters) {
       inputParameters = connector.inputOutput.inputParameters.map(formatParameter);
@@ -20,14 +21,19 @@ module.exports = function Connector(connector, parentContext) {
       outputParameters = connector.inputOutput.outputParameters.map(formatParameter);
     }
   }
-
-  debug(`<${name}> type`, type);
+  debug('INPUT: %o', inputParameters);
+  debug(`**Connector** <${name}> type`, type);
 
   return {
     name,
     type,
-    activate
+    activate,
+    deactivate
   };
+
+  function deactivate(...args) {
+    debug(`deactivated`);
+  }
 
   function activate(parentApi, inputContext) {
     let iParms, oParms;
@@ -36,24 +42,31 @@ module.exports = function Connector(connector, parentContext) {
 
     debug(`<${activityId}> service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
 
-    return {
+   return {
       name,
       type,
       execute
     };
 
     function execute(message, callback) {
-      const executeArgs = getInputArguments(message);
+      const inputArgs = getInputArguments(message);
+      let executeArgs = [];
+      executeArgs.push({
+        activityElement: activityElement
+        , inputArgs
+      })
       executeArgs.push(serviceCallback);
-
       debug(`<${name}> execute with`, executeArgs);
 
+
       const serviceFn = environment.getServiceByName(name);
+      debug(`has serviceFn ? %o`, (serviceFn ? serviceFn : "nada"));
       return serviceFn.apply(parentApi, executeArgs);
 
       function serviceCallback(err, ...args) {
         const output = getOutput(args);
 
+        debug(`******************************** OUTPUT: ${output}`);
         if (err) {
           debug(`<${name}> errored: ${err.message}`);
         } else {
@@ -65,8 +78,11 @@ module.exports = function Connector(connector, parentContext) {
     }
 
     function getInputArguments() {
+      debug('getInputArguments: %o', inputParameters);
       if (inputParameters) {
-        return getInputParameters().map((parm) => parm.get());
+        let inputArgs = {};
+        getInputParameters().map((parm) => {  inputArgs[parm.name] = parm.get() })
+        return inputArgs;
       }
 
       return [inputContext];
@@ -91,6 +107,7 @@ module.exports = function Connector(connector, parentContext) {
       if (iParms) return iParms;
       if (!inputParameters) return [];
       iParms = inputParameters.map((parm) => parm.activate(inputContext));
+      debug(`getInputParameters return: %o`, iParms);
       return iParms;
     }
 

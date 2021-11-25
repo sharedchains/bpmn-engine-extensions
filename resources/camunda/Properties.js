@@ -15,7 +15,8 @@ module.exports = function Properties(properties, parentContext) {
   return {
     type,
     activate,
-    getProperty
+    getProperty,
+    getAll
   };
 
   function activate(parentApi, inputContext) {
@@ -61,5 +62,17 @@ module.exports = function Properties(properties, parentContext) {
 
   function getProperty(name) {
     return parameters.find((parm) => parm.name === name);
+  }
+
+  function getAll() {
+      let propertyValues = {};
+      let activeParameters = parameters.map((parm) => parm.activate(null));
+      return activeParameters.reduce((result, parm) => {
+        const value = parm.get();
+        if (value !== undefined) {
+          result[parm.name] = value;
+        }
+        return result;
+      }, propertyValues);
   }
 };

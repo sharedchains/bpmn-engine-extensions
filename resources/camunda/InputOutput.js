@@ -4,11 +4,12 @@ const Debug = require('debug');
 const getNormalizedResult = require('./getNormalizedResult');
 const Parameter = require('./Parameter');
 
-module.exports = function InputOutput(activity, {environment}, form) {
-  const id = activity.id;
+module.exports = function InputOutput(activity, parentContext, form) {
+  const { id, environment } = parentContext;
   const type = activity.$type;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
 
+  debug(`activityIO: IN:%o OUT:%o`, activity.inputParameters, activity.outputParameters);
   const inputParameters = activity.inputParameters && activity.inputParameters.map((parm) => Parameter(parm, environment));
   const outputParameters = activity.outputParameters && activity.outputParameters.map((parm) => Parameter(parm, environment));
 
@@ -29,6 +30,7 @@ module.exports = function InputOutput(activity, {environment}, form) {
   function allowReturnInputContext(value) {
     if (value === undefined) return returnInputContext;
     returnInputContext = !!value;
+    debug(`>allowReturnInputContext %o`, returnInputContext);
     return returnInputContext;
   }
 

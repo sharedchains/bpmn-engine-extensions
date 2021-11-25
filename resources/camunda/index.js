@@ -5,8 +5,10 @@ const Form = require('./Form');
 const FormKey = require('./FormKey');
 const InputOutput = require('./InputOutput');
 const Properties = require('./Properties');
+const Listeners = require('./Listeners');
 const ResultVariableIo = require('./ResultVariableIo');
 const moddleOptions = require('camunda-bpmn-moddle/resources/camunda');
+const Debug = require('debug');
 
 module.exports = {
   extension: Camunda,
@@ -14,9 +16,15 @@ module.exports = {
 };
 
 function Camunda(activityElement, parentContext) {
-  const {extensionElements, formKey} = activityElement;
+  const behaviour = activityElement.behaviour;
+  const { extensionElements, formKey } = behaviour;
   const hasExtValues = extensionElements && extensionElements.values;
+  const { type, id } = activityElement;
+  const debug = Debug(`bpmn-engine:camunda:${type}:${id}`);
 
+  debug(`activity: %o`, activityElement);
+  debug(`hasExtValues: %o`, hasExtValues);
+  const listeners = loadListeners();
   const properties = loadProperties();
   const form = loadForm();
   const io = loadIo(form);
@@ -24,6 +32,7 @@ function Camunda(activityElement, parentContext) {
   return Activity({
     io,
     properties,
+    listeners,
     form
   }, activityElement, parentContext);
 
@@ -39,7 +48,7 @@ function Camunda(activityElement, parentContext) {
 
   function loadForm() {
     if (hasExtValues) {
-      const source = extensionElements.values.find((elm) => elm.$type === 'camunda:FormData');
+      const source = extensionElements.values.find(elm => elm.$type == 'camunda:FormData');
       if (source) return Form(source, parentContext);
     }
 
@@ -49,7 +58,14 @@ function Camunda(activityElement, parentContext) {
   function loadProperties() {
     if (!hasExtValues) return;
 
-    const source = extensionElements.values.find((elm) => elm.$type === 'camunda:Properties');
+    const source = extensionElements.values.find(elm => elm.$type == 'camunda:Properties');
     if (source) return Properties(source, parentContext);
+  }
+
+  function loadListeners() {
+    if (!hasExtValues) return;
+
+    const listeners = extensionElements.values.filter(elm => elm.$type == 'camunda:ExecutionListener');
+    if (listeners) return Listeners(listeners, parentContext);
   }
 }

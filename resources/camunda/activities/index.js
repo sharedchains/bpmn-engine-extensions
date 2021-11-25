@@ -1,27 +1,48 @@
 'use strict';
 
+const Debug = require('debug');
 const BoundaryEvent = require('./BoundaryEvent');
 const FormIo = require('../FormIo');
 const ServiceTask = require('./ServiceTask');
 
 module.exports = function Activity(extensions, activityElement, parentContext) {
-  const {$type} = activityElement;
-  const {form, io, properties} = extensions;
+  const {id, $type} = activityElement.behaviour;
+  const {form, io, properties, listeners} = extensions;
+  const debug = Debug(`bpmn-engine:camundaActivity:${id}`);
 
-  if ($type === 'bpmn:ServiceTask') return ServiceTask({io, properties}, activityElement, parentContext);
-  else if ($type === 'bpmn:ScriptTask') return ServiceTask({io, properties}, activityElement, parentContext);
-  else if ($type === 'bpmn:BoundaryEvent') return BoundaryEvent({io, properties}, activityElement, parentContext);
-  return Base();
+  debug(` elemType:%o actElem:%o <<`, $type, activityElement);
+  debug(` extensions:%o`, extensions);
+  var retData=null;
+  if ($type === 'bpmn:ServiceTask') retData= ServiceTask({io, properties}, activityElement, parentContext);
+  else if ($type === 'bpmn:ScriptTask') retData= ServiceTask({io, properties}, activityElement, parentContext);
+  else if ($type === 'bpmn:BoundaryEvent') retData= BoundaryEvent({io, properties, listeners}, activityElement, parentContext);
+  else retData = Base();
+  debug(` ret:%o <<`, retData);
+  return retData;
 
+  function activate(message) {
+    debug('activate');
+    if (listeners && undefined!==listeners)
+        listeners.activate(message);
+  }
+  function deactivate(message) {
+    debug('deactivate')
+    if (listeners && undefined!==listeners)
+        listeners.deactivate(message);
+  }
   function Base() {
+    debug('>base');
     let loadedIo = io;
     if (!loadedIo && form) {
       loadedIo = FormIo(form, parentContext);
     }
-
     return {
       io: loadedIo,
-      properties
+      properties,
+      listeners,
+      activate,
+      deactivate, 
+      id, $type
     };
   }
 };
