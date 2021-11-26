@@ -8,27 +8,31 @@ const ServiceTask = require('./ServiceTask');
 module.exports = function Activity(extensions, activityElement, parentContext) {
   const {id, $type} = activityElement.behaviour;
   const {form, io, properties, listeners} = extensions;
-  const debug = Debug(`bpmn-engine:camundaActivity:${id}`);
+  const debug = Debug(`bpmn-engine:camunda:Activity:${id}`);
 
-  debug(` elemType:%o actElem:%o <<`, $type, activityElement);
-  debug(` extensions:%o`, extensions);
-  var retData=null;
-  if ($type === 'bpmn:ServiceTask') retData= ServiceTask({io, properties}, activityElement, parentContext);
-  else if ($type === 'bpmn:ScriptTask') retData= ServiceTask({io, properties}, activityElement, parentContext);
-  else if ($type === 'bpmn:BoundaryEvent') retData= BoundaryEvent({io, properties, listeners}, activityElement, parentContext);
+  debug(' elemType:%o actElem:%o <<', $type, activityElement);
+  debug(' extensions:%o', extensions);
+  let retData = null;
+  if ($type === 'bpmn:ServiceTask') retData = ServiceTask({io, properties, listeners}, activityElement, parentContext);
+  else if ($type === 'bpmn:ScriptTask') retData = ServiceTask({io, properties, listeners}, activityElement, parentContext);
+  else if ($type === 'bpmn:BoundaryEvent') retData = BoundaryEvent({io, properties, listeners}, activityElement, parentContext);
   else retData = Base();
-  debug(` ret:%o <<`, retData);
+  debug(' ret:%o <<', retData);
   return retData;
 
   function activate(message) {
     debug('activate');
-    if (listeners && undefined!==listeners)
-        listeners.activate(message);
+    if (listeners && undefined !== listeners)
+    {
+      listeners.activate(message);
+    }
   }
   function deactivate(message) {
-    debug('deactivate')
-    if (listeners && undefined!==listeners)
-        listeners.deactivate(message);
+    debug('deactivate');
+    if (listeners && undefined !== listeners)
+    {
+      listeners.deactivate(message);
+    }
   }
   function Base() {
     debug('>base');
@@ -41,7 +45,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       properties,
       listeners,
       activate,
-      deactivate, 
+      deactivate,
       id, $type
     };
   }

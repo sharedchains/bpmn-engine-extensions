@@ -6,7 +6,7 @@ const Debug = require('debug');
 module.exports = function BoundaryEvent(extensions, activityElement, parentContext) {
   const {eventDefinitions} = activityElement;
   const {io, properties, listeners} = extensions;
-  const debug = Debug(`bpmn-engine:${activityElement.id}`);
+  const debug = Debug(`bpmn-engine:camunda:${activityElement.id}`);
 
   extensions.io = loadIo();
   extensions.activate = (message) => {

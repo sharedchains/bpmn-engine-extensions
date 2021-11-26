@@ -19,7 +19,7 @@ module.exports = function Connector(activityElement
     deactivate
   };
 
-  function deactivate(...args) {
+  function deactivate(..._args) {
       debug('deactivate');
   }
 
@@ -30,6 +30,7 @@ module.exports = function Connector(activityElement
 
     const property = serviceProperty.activate(inputContext);
     const serviceFn = getServiceFn();
+    debug('serviceFn value=%o', serviceFn);
 
     return {
       type,
@@ -37,18 +38,18 @@ module.exports = function Connector(activityElement
     };
 
     function execute(inputArg, callback) {
+      debug('execute: %o', serviceFn);
       if (typeof serviceFn !== 'function') return callback(new Error(`Property ${property.name} did not resolve to a function`));
 
       serviceFn.call(parentApi, { inputArg, activityElement }, (err, ...args) => {
 
-        debug(`******************************** OUTPUT: %o`, args);
+        debug('**OUTPUT: %o', args);
         if (err) {
           debug(`<${id}> errored: ${err.message}`);
         } else {
           debug(`<${id}> completed`);
         }
         return callback(err, args);
-//        callback(err, args);
       });
     }
 

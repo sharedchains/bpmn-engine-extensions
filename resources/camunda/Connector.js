@@ -12,7 +12,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
 
   let inputParameters, outputParameters;
 
-  debug('******* connector: %o', connector)
+  debug('******* connector: %o', connector);
   if (connector.inputOutput) {
     if (connector.inputOutput.inputParameters) {
       inputParameters = connector.inputOutput.inputParameters.map(formatParameter);
@@ -31,8 +31,8 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     deactivate
   };
 
-  function deactivate(...args) {
-    debug(`deactivated`);
+  function deactivate(..._args) {
+    debug('deactivated');
   }
 
   function activate(parentApi, inputContext) {
@@ -50,17 +50,17 @@ module.exports = function Connector(connector, activityElement, parentContext) {
 
     function execute(message, callback) {
       const inputArgs = getInputArguments(message);
-      let executeArgs = [];
+      const executeArgs = [];
       executeArgs.push({
         activityElement: activityElement
         , inputArgs
-      })
+      });
       executeArgs.push(serviceCallback);
       debug(`<${name}> execute with`, executeArgs);
 
 
       const serviceFn = environment.getServiceByName(name);
-      debug(`has serviceFn ? %o`, (serviceFn ? serviceFn : "nada"));
+      debug('has serviceFn ? %o', (serviceFn ? serviceFn : 'nada'));
       return serviceFn.apply(parentApi, executeArgs);
 
       function serviceCallback(err, ...args) {
@@ -79,9 +79,13 @@ module.exports = function Connector(connector, activityElement, parentContext) {
 
     function getInputArguments() {
       debug('getInputArguments: %o', inputParameters);
-      if (inputParameters) {
-        let inputArgs = {};
-        getInputParameters().map((parm) => {  inputArgs[parm.name] = parm.get() })
+      if (inputParameters)
+      {
+        const inputArgs = {};
+        getInputParameters().map((parm) =>
+        {
+          inputArgs[parm.name] = parm.get();
+        });
         return inputArgs;
       }
 
@@ -107,7 +111,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       if (iParms) return iParms;
       if (!inputParameters) return [];
       iParms = inputParameters.map((parm) => parm.activate(inputContext));
-      debug(`getInputParameters return: %o`, iParms);
+      debug('getInputParameters return: %o', iParms);
       return iParms;
     }
 

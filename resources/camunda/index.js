@@ -22,8 +22,8 @@ function Camunda(activityElement, parentContext) {
   const { type, id } = activityElement;
   const debug = Debug(`bpmn-engine:camunda:${type}:${id}`);
 
-  debug(`activity: %o`, activityElement);
-  debug(`hasExtValues: %o`, hasExtValues);
+  debug('activity: %o', activityElement);
+  debug('hasExtValues: %o', hasExtValues);
   const listeners = loadListeners();
   const properties = loadProperties();
   const form = loadForm();
@@ -48,7 +48,7 @@ function Camunda(activityElement, parentContext) {
 
   function loadForm() {
     if (hasExtValues) {
-      const source = extensionElements.values.find(elm => elm.$type == 'camunda:FormData');
+      const source = extensionElements.values.find(elm => elm.$type === 'camunda:FormData');
       if (source) return Form(source, parentContext);
     }
 
@@ -58,14 +58,17 @@ function Camunda(activityElement, parentContext) {
   function loadProperties() {
     if (!hasExtValues) return;
 
-    const source = extensionElements.values.find(elm => elm.$type == 'camunda:Properties');
+    const source = extensionElements.values.find(elm => elm.$type === 'camunda:Properties');
     if (source) return Properties(source, parentContext);
   }
 
   function loadListeners() {
     if (!hasExtValues) return;
 
-    const listeners = extensionElements.values.filter(elm => elm.$type == 'camunda:ExecutionListener');
-    if (listeners) return Listeners(listeners, parentContext);
+    const execListeners = extensionElements.values.filter(elm => elm.$type === 'camunda:ExecutionListener');
+    if (execListeners)
+    {
+      return Listeners(execListeners, parentContext);
+    }
   }
 }

@@ -9,13 +9,12 @@ module.exports = function Listeners(listeners, parentContext)
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
   const atEventList = [];
 
-  debug(`listeners: %o`, listeners);
+  debug('listeners: %o', listeners);
 
-  for(let idx in listeners)
+  for (const idx in listeners)
   {
     const elm = listeners[idx];
-    atEventList.push(Listener(elm, parentContext)
-    );
+    atEventList.push(Listener(elm, parentContext));
   }
 
   return {
@@ -30,7 +29,7 @@ module.exports = function Listeners(listeners, parentContext)
 
   function activate(parentApi)
   {
-    if (parentApi.fields.routingKey!='run.enter')
+    if (parentApi.fields.routingKey !== 'run.enter')
       return ;
 
     for (let idx in atEventList)
@@ -48,7 +47,7 @@ module.exports = function Listeners(listeners, parentContext)
   }
 
   function getAt(when) {
-	  return atEventList.filter(listener => listener.event==when);
+	  return atEventList.filter(listener => listener.event===when);
   }
   function atEnd() {
     return getAt('end');
