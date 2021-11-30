@@ -70,7 +70,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
     } else if (properties && properties.getProperty('service')) {
       return ServiceProperty(activityElement
         , parentContext
-        , properties.getProperty('service'));
+        , properties);
     }
   }
 

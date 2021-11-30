@@ -5,11 +5,13 @@ const getNormalizedResult = require('./getNormalizedResult');
 
 module.exports = function Connector(activityElement
       , parentContext
-      , serviceProperty) {
+      , properties) {
   const id = activityElement.id;
   const $type = activityElement.behaviour.$type;
+  const serviceProperty = properties.getProperty('service');
   const type = `${$type}:property`;
   const {environment} = parentContext;
+  const propValues = {};
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
 
   debug(`prop:${type}`);
@@ -29,6 +31,10 @@ module.exports = function Connector(activityElement
     debug(`service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
 
     const property = serviceProperty.activate(inputContext);
+    for (const name in properties.getAll()) {
+      propValues[name] = properties.getProperty(name).activate(inputContext);
+    }
+    console.warn('props: %o', propValues);
     const serviceFn = getServiceFn();
     debug('serviceFn value=%o', serviceFn);
 
@@ -41,7 +47,7 @@ module.exports = function Connector(activityElement
       debug('execute: %o', serviceFn);
       if (typeof serviceFn !== 'function') return callback(new Error(`Property ${property.name} did not resolve to a function`));
 
-      serviceFn.call(parentApi, { inputArg, activityElement }, (err, ...args) => {
+      serviceFn.call(parentApi, { inputArg, activityElement, properties: propValues }, (err, ...args) => {
 
         debug('**OUTPUT: %o', args);
         if (err) {
