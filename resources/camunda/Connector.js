@@ -22,6 +22,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     }
   }
   debug('INPUT: %o', inputParameters);
+  debug('OUTPUT: %o', outputParameters);
   debug(`**Connector** <${name}> type`, type);
 
   return {
@@ -96,7 +97,6 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       if (!outputParameters) return result;
 
       const resolveResult = getNormalizedResult(result);
-
       return getOutputParameters().reduce((output, parm, idx) => {
         if (parm.valueType === 'expression') {
           output[parm.name] = parm.resolve(resolveResult);
