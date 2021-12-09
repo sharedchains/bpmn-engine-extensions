@@ -27,19 +27,32 @@ module.exports = function Listeners(listeners, parentContext)
     atStart
   };
 
-  function activate(parentApi)
+  function activate(parentApi, activityElement)
   {
+    debug('activate: key: ' + parentApi.fields.routingKey);
     if (parentApi.fields.routingKey !== 'run.enter')
+    {
       return ;
+    }
 
-    for (let idx in atEventList)
-      atEventList[idx].activate(parentApi);
+    for (const idx in atEventList)
+    {
+      atEventList[idx].activate(parentApi, activityElement);
+    }
 
 	  debug('>> activated!');
   }
 
-  function deactivate(parentApi, inputContext) {
-	  debug('<< deactivate');
+  function deactivate(parentApi, activityElement) {
+	  debug('<< deactivate: %o', parentApi.fields.routingKey);
+    if (parentApi.fields.routingKey !== 'run.leave')
+      return;
+
+    for (const idx in atEventList)
+    {
+      atEventList[idx].deactivate(parentApi, activityElement);
+    }
+    debug('deactivated');
   }
 
   function getAll() {
@@ -47,7 +60,7 @@ module.exports = function Listeners(listeners, parentContext)
   }
 
   function getAt(when) {
-	  return atEventList.filter(listener => listener.event===when);
+	  return atEventList.filter(listener => listener.event === when);
   }
   function atEnd() {
     return getAt('end');

@@ -33,12 +33,12 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
     debug(`activate ${message}`, message);
     if (listeners && undefined !== listeners)
     {
-      listeners.activate(message);
+      listeners.activate(message, activityElement);
     }
     if (extensions.service && extensions.service.activate)
     {
       connectorExecutor = extensions.service.activate(message
-        , { isLoopContext: false, index: 0 });
+        , { isLoopContext: message.isMultiInstance, index: 0 });
     }
   };
 
@@ -46,7 +46,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
     debug(`deactivate ${message}`);
     if (listeners && undefined !== listeners)
     {
-      listeners.deactivate(message);
+      listeners.deactivate(message, activityElement);
     }
   };
 

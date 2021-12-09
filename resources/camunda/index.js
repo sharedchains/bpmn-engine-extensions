@@ -23,6 +23,7 @@ function Camunda(activityElement, parentContext) {
   const debug = Debug(`bpmn-engine:camunda:${type}:${id}`);
 
   debug('activity: %o', activityElement);
+  debug('parent: %o', parentContext);
   debug('hasExtValues: %o', hasExtValues);
   const listeners = loadListeners();
   const properties = loadProperties();

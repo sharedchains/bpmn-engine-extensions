@@ -41,6 +41,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     const {id: activityId} = parentApi;
     const {isLoopContext, index} = inputContext;
 
+    debug('inputContext: %o', inputContext);
     debug(`<${activityId}> service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
 
    return {
@@ -51,10 +52,12 @@ module.exports = function Connector(connector, activityElement, parentContext) {
 
     function execute(message, callback) {
       const inputArgs = getInputArguments(message);
+      const loopArgs = getLoopArguments(message);
       const executeArgs = [];
       executeArgs.push({
         activityElement: activityElement
         , inputArgs
+        , loopArgs
       });
       executeArgs.push(serviceCallback);
       debug(`<${name}> execute with`, executeArgs);
@@ -65,9 +68,9 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       return serviceFn.apply(parentApi, executeArgs);
 
       function serviceCallback(err, ...args) {
-        const output = getOutput(args);
+        let output = getOutput(args);
 
-        debug(`******************************** OUTPUT: ${output}`);
+        debug('** OUTPUT: %o', output);
         if (err) {
           debug(`<${name}> errored: ${err.message}`);
         } else {
@@ -78,7 +81,20 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       }
     }
 
-    function getInputArguments() {
+    function getLoopArguments(message) {
+      debug('getInputArgs msg: %o', message);
+      const { content } = message;
+      if (!content.isMultiInstance)
+      {
+        return null;
+      }
+
+      return { index: content.index
+        , item: content.item
+        , loopCardinality: content.item };
+    }
+
+    function getInputArguments(_message) {
       debug('getInputArguments: %o', inputParameters);
       if (inputParameters)
       {

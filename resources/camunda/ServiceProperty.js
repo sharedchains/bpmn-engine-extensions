@@ -34,7 +34,6 @@ module.exports = function Connector(activityElement
     for (const name in properties.getAll()) {
       propValues[name] = properties.getProperty(name).activate(inputContext);
     }
-    console.warn('props: %o', propValues);
     const serviceFn = getServiceFn();
     debug('serviceFn value=%o', serviceFn);
 

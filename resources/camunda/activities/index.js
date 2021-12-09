@@ -20,20 +20,6 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   debug(' ret:%o <<', retData);
   return retData;
 
-  function activate(message) {
-    debug('activate');
-    if (listeners && undefined !== listeners)
-    {
-      listeners.activate(message);
-    }
-  }
-  function deactivate(message) {
-    debug('deactivate');
-    if (listeners && undefined !== listeners)
-    {
-      listeners.deactivate(message);
-    }
-  }
   function Base() {
     debug('>base');
     let loadedIo = io;
@@ -46,7 +32,27 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       listeners,
       activate,
       deactivate,
+      execute,
       id, $type
     };
+
+    function activate(message) {
+      debug('activate');
+      if (listeners && undefined !== listeners)
+      {
+        listeners.activate(message, activityElement);
+      }
+    }
+    function deactivate(message) {
+      debug('deactivate');
+      if (listeners && undefined !== listeners)
+      {
+        listeners.deactivate(message, activityElement);
+      }
+    }
+
+    function execute(...args) {
+      debug('execute %o', args);
+    }
   }
 };

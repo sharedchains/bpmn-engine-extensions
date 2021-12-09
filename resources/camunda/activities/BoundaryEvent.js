@@ -12,15 +12,15 @@ module.exports = function BoundaryEvent(extensions, activityElement, parentConte
   extensions.activate = (message) => {
     debug('activate: %o', listeners);
     if (listeners)
-        listeners.activate(message);
+        listeners.activate(message, activityElement);
   }
   extensions.deactivate = (message) => {
     debug('activate');
     if (listeners)
-      listeners.deactivate(message);
+      listeners.deactivate(message, activityElement);
   }
   activityElement.behaviour.Service = (...args) => {
-    console.warn('EXECUTE!! %o', args);
+    debug('EXECUTE!! %o', args);
   }
 
   debug(` extensions:%o`, extensions);

@@ -10,22 +10,46 @@ module.exports = function Listener(listener, parentContext)
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
   const moddle = listener;
   const { environment } = parentContext;
+  const { resources } = environment.options;
   var jsScript = null;
+  let discarded = false;
 
   return {
 	  type
     , event
     , execute
     , activate
+    , deactivate
   }
 
-  function activate(context)
+  function deactivate(context, activityElement)
   {
-    debug('activate');
+    discarded = true;
+    const evt = event==='start' ? 'activity.enter' : 'activity.end';
+    debug('discard:%o -> %o', activityElement.id, evt);
+  }
+
+  function activate(context, activityElement)
+  {
+    discarded = false;
+    const evt = event==='start' ? 'activity.enter' : 'activity.end';
+    debug('activate[%o][%o] script:%o'
+      , evt
+      , activityElement.id
+      , script);
     if (script.value)
     {
       this.jsScript = new Script(script.value);
     }
+
+    const broker = activityElement.broker;
+
+    broker.subscribeTmp('event', evt
+      , (args) => {
+        debug('execute: %o -> %o', activityElement.id, args);
+        execute(activityElement, parentContext, resources);
+      }, { noAck: true });
+
   }
 
   function execute(elementApi, engineApi, resources, callback)
@@ -33,10 +57,18 @@ module.exports = function Listener(listener, parentContext)
     if (null===resources)
       return ;
 
+    if (discarded)
+    {
+	    debug(`${elementApi.id} was discarded!`);
+      return ;
+    }
+
+    /*
 	  debug(`${elementApi.id} -execute- moddle: %o`, moddle);
     debug(`${elementApi.id} -execute- context: %o`, parentContext); 
     debug(`${elementApi.id} -execute- engine: %o`, engineApi);
     debug(`${elementApi.id} -execute- resources: %o`, resources);
+    */
 
     if ('javascript'!==script.scriptFormat)
       return ;

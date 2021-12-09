@@ -29,7 +29,6 @@ module.exports = function FormIo(form, {environment}) {
 
     debug(`<${activityId}>${loop ? ` loop context iteration ${index}` : ''} activated`);
 
-    console.log('>> ACTIVATE!');
     return {
       id,
       type,
