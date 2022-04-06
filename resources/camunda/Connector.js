@@ -58,6 +58,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
         activityElement: activityElement
         , inputArgs
         , loopArgs
+        , parentContext
       });
       executeArgs.push(serviceCallback);
       debug(`<${name}> execute with`, executeArgs);
@@ -68,7 +69,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       return serviceFn.apply(parentApi, executeArgs);
 
       function serviceCallback(err, ...args) {
-        let output = getOutput(args);
+        const output = getOutput(args);
 
         debug('** OUTPUT: %o', output);
         if (err) {
