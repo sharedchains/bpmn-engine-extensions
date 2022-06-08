@@ -35,3 +35,5 @@ config/_revision
 .eslintcache
 
 package-lock.json
+.package.json.un~
+package.json~
