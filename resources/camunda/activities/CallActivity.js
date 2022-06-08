@@ -3,29 +3,25 @@
 const ElementPropertyIo = require('../ElementPropertyIo');
 const Debug = require('debug');
 
-module.exports = function BoundaryEvent(extensions, activityElement, parentContext) {
+module.exports = function CallActivity(extensions, activityElement, parentContext) {
   const {eventDefinitions} = activityElement;
-  const {io, listeners} = extensions;
+  const {io} = extensions;
   const debug = Debug(`bpmn-engine:camunda:${activityElement.id}`);
 
   extensions.io = loadIo();
   extensions.activate = (message) => {
-    debug('activate: %o', listeners);
-    if (listeners) {
-      listeners.activate(message, activityElement);
-    }
-  };
-  extensions.deactivate = (message) => {
-    debug('activate');
-    if (listeners) {
-      listeners.deactivate(message, activityElement);
-    }
-  };
-  activityElement.behaviour.Service = (...args) => {
-    debug('EXECUTE!! %o', args);
+    debug('activate: %o', message);
   };
 
-  debug(' extensions:%o', extensions);
+  extensions.deactivate = (message) => {
+    debug('activate: %o', message);
+  };
+
+  extensions.resume = (...args) => {
+    debug('resume: %o', args);
+  };
+
+  debug('extensions:%o', extensions);
   return extensions;
 
   function loadIo() {

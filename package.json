@@ -1,6 +1,6 @@
 {
   "name": "bpmn-engine-extensions",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Extensions for bpmn-engine",
   "main": "index.js",
   "scripts": {
@@ -37,7 +37,7 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-node8": "^1.2.0",
     "babel-register": "^6.26.0",
-    "bpmn-engine": "^12.0.1",
+    "bpmn-engine": "^13.0.1",
     "chai": "^4.1.2",
     "eslint": "^8.3.0",
     "markdown-toc": "^1.2.0",

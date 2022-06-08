@@ -4,8 +4,8 @@ const Debug = require('debug');
 const getNormalizedResult = require('./getNormalizedResult');
 
 module.exports = function Connector(activityElement
-      , parentContext
-      , properties) {
+  , parentContext
+  , properties) {
   const id = activityElement.id;
   const $type = activityElement.behaviour.$type;
   const serviceProperty = properties.getProperty('service');
@@ -22,7 +22,7 @@ module.exports = function Connector(activityElement
   };
 
   function deactivate(..._args) {
-      debug('deactivate');
+    debug('deactivate');
   }
 
   function activate(parentApi, inputContext) {

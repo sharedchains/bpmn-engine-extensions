@@ -7,12 +7,14 @@ const getNormalizedResult = require('./getNormalizedResult');
 module.exports = function Connector(connector, activityElement, parentContext) {
   const type = connector.$type;
   const name = connector.connectorId;
+  const id = connector.connectorId;
   const {environment} = parentContext;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const connectorActivityElement = activityElement;
+  const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
 
   let inputParameters, outputParameters;
 
-  debug('******* connector: %o', connector);
+  debug('>>> START: connector: %o', connector);
   if (connector.inputOutput) {
     if (connector.inputOutput.inputParameters) {
       inputParameters = connector.inputOutput.inputParameters.map(formatParameter);
@@ -23,56 +25,84 @@ module.exports = function Connector(connector, activityElement, parentContext) {
   }
   debug('INPUT: %o', inputParameters);
   debug('OUTPUT: %o', outputParameters);
-  debug(`**Connector** <${name}> type`, type);
+  debug('ACTIVITY: %o', connectorActivityElement);
+  debug(`<<< DONE: connector: <${name}> type`, type);
 
   return {
     name,
     type,
+    id,
     activate,
     deactivate
   };
 
-  function deactivate(..._args) {
+  function deactivate() {
     debug('deactivated');
   }
 
   function activate(parentApi, inputContext) {
     let iParms, oParms;
-    const {id: activityId} = parentApi;
+    let activityId = 'unknown';
+    let parentType = 'unknown';
+
+    if (parentApi.id) activityId = parentApi.id;
+    else if (parentApi.content.id) activityId = parentApi.content.id;
+
+    if (parentApi.type) parentType = parentApi.type;
+    else if (parentApi.content.type) parentType = parentApi.content.type;
+
     const {isLoopContext, index} = inputContext;
 
-    debug('inputContext: %o', inputContext);
+    debug('>>> Activate - type: %o parentApi: %o', parentType, parentApi);
+    debug('>>> Activate: %o - inputContext: %o', activityId, inputContext);
     debug(`<${activityId}> service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
+    if (parentType === 'bpmn:IntermediateThrowEvent') {
+      debug('>>> Activate: connector: %o', connector);
+      debug('>>> Activate: activity: %o', connectorActivityElement);
+      debug('>>> Activate: environment: %o', environment);
+      const orig = connectorActivityElement.eventDefinitions[0].execute;
+      connectorActivityElement.eventDefinitions[0].execute = function(executeMessage) {
+        execute(executeMessage, orig);
+      };
+    }
 
-   return {
+    return {
       name,
-      type,
+      type: parentType,
       execute
     };
 
     function execute(message, callback) {
-      const inputArgs = getInputArguments(message);
-      const loopArgs = getLoopArguments(message);
+      const inputArgs = getInputArguments();
       const executeArgs = [];
       executeArgs.push({
-        activityElement: activityElement
+        activityElement: connectorActivityElement
         , inputArgs
-        , loopArgs
+        , parentContext
+        , message
+        , connector
       });
       executeArgs.push(serviceCallback);
       debug(`<${name}> execute with`, executeArgs);
 
 
       const serviceFn = environment.getServiceByName(name);
-      debug('has serviceFn ? %o', (serviceFn ? serviceFn : 'nada'));
+      debug('%o has serviceFn ? %o', name, (serviceFn ? 'yes' : 'nada'));
+      if (serviceFn === null) {
+        // eslint-disable-next-line no-console
+        console.warn('>> %o/%o MISSING ServiceFn', id, name);
+        return;
+      }
       return serviceFn.apply(parentApi, executeArgs);
 
-      function serviceCallback(err, ...args) {
-        let output = getOutput(args);
+      function serviceCallback(err, args) {
+        debug('<serviceCallback> args: %o', args);
+        const output = getOutput(args);
 
         debug('** OUTPUT: %o', output);
         if (err) {
-          debug(`<${name}> errored: ${err.message}`);
+          debug('error: %o', err);
+          debug(`<${name}> error: ` + (err.message ? err.message : 'no error message'));
         } else {
           debug(`<${name}> completed`);
         }
@@ -81,26 +111,11 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       }
     }
 
-    function getLoopArguments(message) {
-      debug('getInputArgs msg: %o', message);
-      const { content } = message;
-      if (!content.isMultiInstance)
-      {
-        return null;
-      }
-
-      return { index: content.index
-        , item: content.item
-        , loopCardinality: content.item };
-    }
-
-    function getInputArguments(_message) {
+    function getInputArguments() {
       debug('getInputArguments: %o', inputParameters);
-      if (inputParameters)
-      {
+      if (inputParameters) {
         const inputArgs = {};
-        getInputParameters().map((parm) =>
-        {
+        getInputParameters().map((parm) => {
           inputArgs[parm.name] = parm.get();
         });
         return inputArgs;
@@ -110,12 +125,25 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     }
 
     function getOutput(result) {
+      if (result === null) return null;
+
       if (!outputParameters) return result;
 
+      debug('getOutput - result: %o', result);
       const resolveResult = getNormalizedResult(result);
+      debug('getOutput - normalized: %o', resolveResult);
+
       return getOutputParameters().reduce((output, parm, idx) => {
+        debug('getOutput - reduce - output: %o parm: %o  idx: %o', output, parm, idx);
         if (parm.valueType === 'expression') {
           output[parm.name] = parm.resolve(resolveResult);
+        } else if (parm.valueType === 'named') {
+          /*
+          TODO: FIXME... ora questo risolverebbe tutto...
+          parm.set(resolveResult);
+          parm.save();
+          */
+          output[parm.name] = result;
         } else {
           output[parm.name] = result[idx];
         }
@@ -135,6 +163,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       if (!outputParameters) return [];
       if (!reassign && oParms) return oParms;
       oParms = outputParameters.map((parm) => parm.activate(inputContext));
+      debug('getOutputParameters return: %o', oParms);
       return oParms;
     }
   }

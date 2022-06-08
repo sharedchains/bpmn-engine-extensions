@@ -19,24 +19,19 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   debug('extensions: %o', extensionElements);
   debug('io: %o', io);
 
-  if (!io && resultVariable) {
-    extensions.io = ResultVariableIo(activityElement, parentContext);
-  } if (io && io.allowReturnInputContext) {
-    io.allowReturnInputContext(true);
-  }
+  if (!io && resultVariable) extensions.io = ResultVariableIo(activityElement, parentContext);
+  if (io && io.allowReturnInputContext) io.allowReturnInputContext(true);
 
   extensions.listeners = listeners;
   extensions.service = loadService();
   extensions.loopCharacteristics = loopCharacteristics;
   activityElement.behaviour.Service = executeConnector;
+  activityElement.behaviour.listeners = listeners;
   extensions.activate = (message) => {
     debug(`activate ${message}`, message);
-    if (listeners && undefined !== listeners)
-    {
-      listeners.activate(message, activityElement);
-    }
-    if (extensions.service && extensions.service.activate)
-    {
+    debug('has listeners? %o', listeners);
+    if (listeners && undefined !== listeners) listeners.activate(message, activityElement);
+    if (extensions.service && extensions.service.activate) {
       connectorExecutor = extensions.service.activate(message
         , { isLoopContext: message.isMultiInstance, index: 0 });
     }
@@ -44,10 +39,17 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
 
   extensions.deactivate = (message) => {
     debug(`deactivate ${message}`);
-    if (listeners && undefined !== listeners)
-    {
-      listeners.deactivate(message, activityElement);
-    }
+    debug('has listeners? %o', listeners);
+    if (listeners && undefined !== listeners) listeners.deactivate(message, activityElement);
+  };
+
+  extensions.getState = () => {
+    debug('-Activity-GETSTATE');
+    return this.listeners;
+  };
+
+  extensions.recover = (...args) => {
+    debug('-Activity-RESUME: %o', args);
   };
 
   debug('(init) returned : %o', extensions);
@@ -57,17 +59,13 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
     debug('loadService: extValues: %o', hasExtValues);
     if (hasExtValues) {
       const source = extensionElements.values.find((elm) => elm.$type === 'camunda:Connector');
-      if (source)
-      {
-        return Connector(source, activityElement, parentContext);
-      }
+      if (source) return Connector(source, activityElement, parentContext);
     }
 
     debug('loadService: expression: %o', activityElement.expression);
     debug('loadService: properties: %o', properties);
-    if (activityElement.expression) {
-      return ServiceExpression(activityElement, parentContext);
-    } else if (properties && properties.getProperty('service')) {
+    if (activityElement.expression) return ServiceExpression(activityElement, parentContext);
+    if (properties && properties.getProperty('service')) {
       return ServiceProperty(activityElement
         , parentContext
         , properties);
@@ -77,9 +75,6 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   function executeConnector(...args) {
     debug('executing connector: %o', args);
     debug('has connector? %o', (connectorExecutor ? connectorExecutor : 'nada'));
-    if (connectorExecutor)
-    {
-      return connectorExecutor;
-    }
+    if (connectorExecutor) return connectorExecutor;
   }
 };

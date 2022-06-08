@@ -21,15 +21,15 @@ function Camunda(activityElement, parentContext) {
   const hasExtValues = extensionElements && extensionElements.values;
   const { type, id } = activityElement;
   const debug = Debug(`bpmn-engine:camunda:${type}:${id}`);
-
-  debug('activity: %o', activityElement);
-  debug('parent: %o', parentContext);
-  debug('hasExtValues: %o', hasExtValues);
+  debug('init-activity: %o', activityElement);
+  debug('init-parent: %o', parentContext);
+  debug('init-hasExtValues: %o', hasExtValues);
   const listeners = loadListeners();
   const properties = loadProperties();
   const form = loadForm();
   const io = loadIo(form);
 
+  debug('init-Activity(%o)', id);
   return Activity({
     io,
     properties,
@@ -67,8 +67,7 @@ function Camunda(activityElement, parentContext) {
     if (!hasExtValues) return;
 
     const execListeners = extensionElements.values.filter(elm => elm.$type === 'camunda:ExecutionListener');
-    if (execListeners)
-    {
+    if (execListeners) {
       return Listeners(execListeners, parentContext);
     }
   }

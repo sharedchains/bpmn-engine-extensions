@@ -9,19 +9,15 @@ module.exports = function ScriptTask(extensions, activityElement) {
     io.allowReturnInputContext(true);
   }
 
-  extensions.activate = function(message)
-  {
-    if (listeners && undefined !== listeners)
-    {
-      listeners.activate(message);
-    }
+  extensions.activate = function(message) {
+    if (listeners && undefined !== listeners) listeners.activate(message);
   };
   extensions.deactivate = function(message) {
     debug('deactivate');
-    if (listeners && undefined !== listeners)
-    {
-      listeners.deactivate(message);
-    }
+    if (listeners && undefined !== listeners) listeners.deactivate(message);
+  };
+  extensions.resume = (...args) => {
+    debug('----- RESUME! %o', args);
   };
   return extensions;
 };

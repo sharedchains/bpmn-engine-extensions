@@ -8,7 +8,7 @@ module.exports = function Listener(listener, parentContext)
   const { event, script, fields } = listener;
   const type = 'camunda:ExecutionListeners:'+event;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
-  const moddle = listener;
+  debug('listener: %o', listener);
   const { environment } = parentContext;
   const { resources } = environment.options;
   var jsScript = null;
@@ -22,14 +22,14 @@ module.exports = function Listener(listener, parentContext)
     , deactivate
   }
 
-  function deactivate(context, activityElement)
+  function deactivate(_context, activityElement)
   {
     discarded = true;
     const evt = event==='start' ? 'activity.enter' : 'activity.end';
     debug('discard:%o -> %o', activityElement.id, evt);
   }
 
-  function activate(context, activityElement)
+  function activate(_context, activityElement)
   {
     discarded = false;
     const evt = event==='start' ? 'activity.enter' : 'activity.end';
@@ -44,7 +44,8 @@ module.exports = function Listener(listener, parentContext)
 
     const broker = activityElement.broker;
 
-    broker.subscribeTmp('event', evt
+    debug('subscripe to %o', evt)
+    broker.subscribeOnce('event', evt
       , (args) => {
         debug('execute: %o -> %o', activityElement.id, args);
         execute(activityElement, parentContext, resources);
@@ -67,13 +68,13 @@ module.exports = function Listener(listener, parentContext)
 	  debug(`${elementApi.id} -execute- moddle: %o`, moddle);
     debug(`${elementApi.id} -execute- context: %o`, parentContext); 
     debug(`${elementApi.id} -execute- engine: %o`, engineApi);
-    debug(`${elementApi.id} -execute- resources: %o`, resources);
     */
+    debug(`${elementApi.id} -execute- resources: %o`, resources);
 
     if ('javascript'!==script.scriptFormat)
       return ;
 
-    if (fields.length>0)
+    if (fields && fields.length>0)
     {
       for(let idx in fields)
       {
@@ -92,10 +93,11 @@ module.exports = function Listener(listener, parentContext)
         execFunc.execute(fields, elementApi, engineApi, callback);
       return ;
     }
-    if (null!==this.jsScript)
+    if (null!==jsScript)
     {
       const timers = environment.timers.register(elementApi);
-      return this.jsScript.runInNewContext({...fields
+      return this.jsScript.runInNewContext({
+          ...fields
           , ...elementApi
           , ...timers
           , next: (...args) => { callback(args); }});
