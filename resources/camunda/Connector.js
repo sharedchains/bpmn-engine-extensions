@@ -65,13 +65,14 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       };
     }
 
-   return {
+    return {
       name,
       type: parentType,
       execute
     };
 
     function execute(message, callback) {
+      debug('execute');
       const inputArgs = getInputArguments();
       const loopArgs = getLoopArguments(message);
       const executeArgs = [];
@@ -115,8 +116,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     function getLoopArguments(message) {
       debug('getInputArgs msg: %o', message);
       const { content } = message;
-      if (!content.isMultiInstance)
-      {
+      if (!content.isMultiInstance) {
         return null;
       }
 
@@ -147,20 +147,23 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       const resolveResult = getNormalizedResult(result);
       debug('getOutput - normalized: %o', resolveResult);
 
-      return getOutputParameters().reduce((output, parm, idx) => {
-        debug('getOutput - reduce - output: %o parm: %o  idx: %o', output, parm, idx);
-        if (parm.valueType === 'expression') {
-          output[parm.name] = parm.resolve(resolveResult);
-        } else if (parm.valueType === 'named') {
-          /*
-          TODO: FIXME... ora questo risolverebbe tutto...
-          parm.set(resolveResult);
-          parm.save();
-          */
-          output[parm.name] = result;
-        } else {
-          output[parm.name] = result[idx];
-        }
+      const outputParms = getOutputParameters();
+      const output = {};
+      if (outputParameters.length === 0) {
+        Object.keys(resolveResult).forEach(key => {
+          environment.assignVariables(key, resolveResult[key]);
+        });
+      }
+      if (outputParms.length === 1) {
+        output[outputParms[0].name] = resolveResult;
+        outputParms[0].set(resolveResult);
+        outputParms[0].save();
+        return output;
+      }
+      return outputParms.reduce((parm, idx) => {
+        debug('getOutput - reduce - parm: %o  idx: %o', parm, idx);
+        parm.set(resolveResult[parm.name]);
+        parm.save();
         return output;
       }, {});
     }

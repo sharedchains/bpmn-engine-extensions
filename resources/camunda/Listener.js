@@ -29,16 +29,14 @@ module.exports = function Listener(listener, parentContext)
     debug('discard:%o -> %o', activityElement.id, evt);
   }
 
-  function activate(_context, activityElement)
-  {
+  function activate(_context, activityElement) {
     discarded = false;
     const evt = event==='start' ? 'activity.enter' : 'activity.end';
     debug('activate[%o][%o] script:%o'
       , evt
       , activityElement.id
       , script);
-    if (script.value)
-    {
+    if (script.value) {
       this.jsScript = new Script(script.value);
     }
 
@@ -53,13 +51,11 @@ module.exports = function Listener(listener, parentContext)
 
   }
 
-  function execute(elementApi, engineApi, resources, callback)
-  {
+  function execute(elementApi, engineApi, resources, callback) {
     if (null===resources)
       return ;
 
-    if (discarded)
-    {
+    if (discarded) {
 	    debug(`${elementApi.id} was discarded!`);
       return ;
     }
@@ -69,32 +65,38 @@ module.exports = function Listener(listener, parentContext)
     debug(`${elementApi.id} -execute- context: %o`, parentContext); 
     debug(`${elementApi.id} -execute- engine: %o`, engineApi);
     */
-    debug(`${elementApi.id} -execute- resources: %o`, resources);
+    debug(`${elementApi.id} ${script.scriptFormat} -execute- resources: %o`, resources);
 
     if ('javascript'!==script.scriptFormat)
       return ;
 
-    if (fields && fields.length>0)
-    {
-      for(let idx in fields)
-      {
+    if (fields && fields.length>0) {
+      for(let idx in fields) {
         fields[idx].value = elementApi.environment.resolveExpression(fields[idx].expression)
       }
+      debug(`assigned fields: %o`, fields);
     }
-    if (script.resource && resources.hasOwnProperty(script.resource))
+
+    debug(`${elementApi.id} ${script.resource} exists ?`);
+    if (script.resource && resources[script.resource])
     {
       let execFunc = resources[script.resource];
       
-      if (execFunc instanceof Function)
+      if (execFunc instanceof Function) {
+        debug(`${elementApi.id} ${script.resource} is a function`);
         execFunc(fields, elementApi, engineApi, callback);
+      }
       if (execFunc instanceof Object
       && execFunc.execute
-      && execFunc.execute instanceof Function)
+      && execFunc.execute instanceof Function) {
+        debug(`${elementApi.id} ${script.resource} has execute function`);
         execFunc.execute(fields, elementApi, engineApi, callback);
+      }
       return ;
     }
     if (null!==jsScript)
     {
+      debug(`${elementApi.id} has jsScript`);
       const timers = environment.timers.register(elementApi);
       return this.jsScript.runInNewContext({
           ...fields
@@ -102,5 +104,6 @@ module.exports = function Listener(listener, parentContext)
           , ...timers
           , next: (...args) => { callback(args); }});
     }
+    debug(`${elementApi.id} I don't know what to do..`);
   }
 }

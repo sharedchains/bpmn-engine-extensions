@@ -68,6 +68,7 @@ function Parameter(parm, environment) {
         case 'constant':
           return value;
         case 'expression':
+          debug(`resolve <${value}> from: ${from}`);
           return resolveExpression(value, from);
         case 'script':
           debug(`execute <${name}> script`);
@@ -83,7 +84,8 @@ function Parameter(parm, environment) {
 
     function save() {
       debug('save', debugType, 'value');
-      environment.setOutputValue(name, get());
+//      environment.setOutputValue(name, get());
+      environment.assignVariables({ [name]: get() });
     }
 
     function getMap() {
