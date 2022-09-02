@@ -11,8 +11,7 @@ module.exports = function IntermediateCatchEvent(extensions, activityElement, pa
   const debug = Debug('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id);
   debug('enter : %o', activityElement);
   const {io, properties, listeners } = extensions;
-  const {eventDefinitions, resultVariable} = activityElement.behaviour;
-  const hasExtValues = eventDefinitions && eventDefinitions.length > 0;
+  const {resultVariable} = activityElement.behaviour;
   let connectorExecutor = null;
   debug('eventType: %o', (isThrow ? 'THROW' : 'CATCH'));
   debug('io: %o', io);
@@ -24,12 +23,13 @@ module.exports = function IntermediateCatchEvent(extensions, activityElement, pa
   }
 
   extensions.listeners = listeners;
-  extensions.service = loadService();
+  extensions.service = loadService(activityElement.behaviour.eventDefinitions);
   activityElement.behaviour.Service = executeConnector;
   extensions.activate = (message) => {
     debug('>>> activate %o', message);
     debug('>>> activate-activity: %o', activityElement);
     debug('>>> parent-context: %o', parentContext);
+    debug('>>> hasConnector: %o', parentContext);
     if (listeners && undefined !== listeners) {
       listeners.activate(message, activityElement);
     }
@@ -49,19 +49,25 @@ module.exports = function IntermediateCatchEvent(extensions, activityElement, pa
   debug('(init) returned : %o', extensions);
   return extensions;
 
-  function loadService() {
+  function loadService(evntDefinitions) {
+    const hasExtValues = evntDefinitions && evntDefinitions.length > 0;
     debug('loadService: extValues: %o', hasExtValues);
-    if (hasExtValues) {
-      // per ora consideriamo un solo messaggio
-      const event = eventDefinitions[0].behaviour;
-      debug('event: %o', event);
-      if (event.extensionElements && event.extensionElements.values) {
-        const extensionElements = event.extensionElements.values;
-        const source = extensionElements.find((elm) => elm.$type === 'camunda:Connector');
-        if (source) {
-          source.eventDefinitions = eventDefinitions;
-          return Connector(source, activityElement, parentContext);
-        }
+    debug('loadService: evntDefinition: %o', evntDefinitions);
+    if (!hasExtValues) {
+      debug('>> NO ExtValues');
+      return null;
+    }
+
+    debug('>> has ExtValues');
+    // per ora consideriamo un solo messaggio
+    const event = evntDefinitions[0].behaviour;
+    debug('event: %o', event);
+    if (event.extensionElements && event.extensionElements.values) {
+      const extensionElements = event.extensionElements.values;
+      const source = extensionElements.find((elm) => elm.$type === 'camunda:Connector');
+      debug('has connector - source: %o', source);
+      if (source) {
+        return Connector(source, activityElement, parentContext);
       }
     }
 

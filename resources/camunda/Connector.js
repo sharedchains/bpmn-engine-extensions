@@ -9,7 +9,6 @@ module.exports = function Connector(connector, activityElement, parentContext) {
   const name = connector.connectorId;
   const id = connector.connectorId;
   const {environment} = parentContext;
-  const connectorActivityElement = activityElement;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
 
   let inputParameters, outputParameters;
@@ -25,6 +24,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
   }
   debug('INPUT: %o', inputParameters);
   debug('OUTPUT: %o', outputParameters);
+
   debug(`<<< DONE: connector: <${name}> type`, type);
 
   return {
@@ -55,13 +55,14 @@ module.exports = function Connector(connector, activityElement, parentContext) {
     debug('>>> Activate - type: %o parentApi: %o', parentType, parentApi);
     debug('>>> Activate: %o - inputContext: %o', activityId, inputContext);
     debug(`<${activityId}> service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
+
     if (parentType === 'bpmn:IntermediateThrowEvent') {
       debug('>>> Activate: connector: %o', connector);
-      debug('>>> Activate: activity: %o', connectorActivityElement);
+      debug('>>> Activate: activity: %o', activityElement);
       debug('>>> Activate: environment: %o', environment);
-      const orig = connectorActivityElement.eventDefinitions[0].execute;
-      connectorActivityElement.eventDefinitions[0].execute = function(executeMessage) {
-        execute(executeMessage, orig);
+      const origCallback = activityElement.eventDefinitions[0].execute;
+      activityElement.eventDefinitions[0].execute = (executeMessage) => {
+        execute(executeMessage, origCallback);
       };
     }
 
@@ -77,8 +78,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       const loopArgs = getLoopArguments(message);
       const executeArgs = [];
       executeArgs.push({
-        activityElement: connectorActivityElement
-        , inputArgs
+        inputArgs
         , loopArgs
         , parentContext
         , message
