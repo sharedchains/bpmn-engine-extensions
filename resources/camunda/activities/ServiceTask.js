@@ -19,7 +19,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   debug('extensions: %o', extensionElements);
   debug('io: %o', io);
 
-  if (!io && resultVariable) extensions.io = ResultVariableIo(activityElement, parentContext);
+  if (!io && resultVariable) extensions.io = ResultVariableIo(activityElement.behaviour, parentContext);
   if (io && io.allowReturnInputContext) io.allowReturnInputContext(true);
 
   extensions.listeners = listeners;
@@ -28,8 +28,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   activityElement.behaviour.Service = executeConnector;
   activityElement.behaviour.listeners = listeners;
   extensions.activate = (message) => {
-    debug(`activate ${message}`, message);
-    debug('has listeners? %o', listeners);
+    debug('activate %o - listeners: %o', message, listeners);
     if (listeners && undefined !== listeners) listeners.activate(message, activityElement);
     if (extensions.service && extensions.service.activate) {
       connectorExecutor = extensions.service.activate(message
@@ -38,8 +37,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   };
 
   extensions.deactivate = (message) => {
-    debug(`deactivate ${message}`);
-    debug('has listeners? %o', listeners);
+    debug('deactivate message: %o - listeners? %o', message, listeners);
     if (listeners && undefined !== listeners) listeners.deactivate(message, activityElement);
   };
 

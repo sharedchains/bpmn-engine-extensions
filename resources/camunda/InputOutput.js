@@ -9,7 +9,7 @@ module.exports = function InputOutput(activity, parentContext, form) {
   const type = activity.$type;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
 
-  debug(`activityIO: IN:%o OUT:%o`, activity.inputParameters, activity.outputParameters);
+  debug('activityIO: IN:%o OUT:%o', activity.inputParameters, activity.outputParameters);
   const inputParameters = activity.inputParameters && activity.inputParameters.map((parm) => Parameter(parm, environment));
   const outputParameters = activity.outputParameters && activity.outputParameters.map((parm) => Parameter(parm, environment));
 
@@ -30,7 +30,7 @@ module.exports = function InputOutput(activity, parentContext, form) {
   function allowReturnInputContext(value) {
     if (value === undefined) return returnInputContext;
     returnInputContext = !!value;
-    debug(`>allowReturnInputContext %o`, returnInputContext);
+    debug('>allowReturnInputContext %o', returnInputContext);
     return returnInputContext;
   }
 

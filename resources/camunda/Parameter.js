@@ -58,33 +58,36 @@ function Parameter(parm, environment) {
     }
 
     function resolve(from) {
-      debug(`resolve ${debugType} value`);
       return internalGet(from);
     }
 
     function internalGet(from) {
-      debug(`get ${debugType} value`);
+      let _value = null;
       switch (valueType) {
         case 'constant':
-          return value;
+          _value = value;
+          break;
         case 'expression':
-          debug(`resolve <${value}> from: ${from}`);
-          return resolveExpression(value, from);
+          _value = resolveExpression(value, from);
+          break;
         case 'script':
-          debug(`execute <${name}> script`);
-          return executeScript(scriptName, script, from);
+          _value = executeScript(scriptName, script, from);
+          break;
         case 'map':
-          return getMap();
+          _value = getMap();
+          break;
         case 'list':
-          return getList();
+          _value = getList();
+          break;
         default:
-          return getNamedValue(from);
+          _value = getNamedValue(from);
       }
+      debug('get %o value returned %o', debugType, _value);
+      return _value;
     }
 
     function save() {
-      debug('save', debugType, 'value');
-//      environment.setOutputValue(name, get());
+      debug(`salve <${name}> value`);
       environment.assignVariables({ [name]: get() });
     }
 

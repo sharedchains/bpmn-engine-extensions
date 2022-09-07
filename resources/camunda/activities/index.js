@@ -6,6 +6,7 @@ const FormIo = require('../FormIo');
 const ServiceTask = require('./ServiceTask');
 const CallActivity = require('./CallActivity');
 const IntermediateEvent = require('./IntermediateEvent');
+const ScriptTask = require('./ScriptTask');
 
 module.exports = function Activity(extensions, activityElement, parentContext) {
   const {id, $type, eventDefinitions} = activityElement.behaviour;
@@ -17,7 +18,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   debug(' extensions:%o', extensions);
   switch ($type) {
     case 'bpmn:ServiceTask': return ServiceTask(activityExtensions, activityElement, parentContext);
-    case 'bpmn:ScriptTask': return ServiceTask(activityExtensions, activityElement, parentContext);
+    case 'bpmn:ScriptTask': return ScriptTask(activityExtensions, activityElement, parentContext);
     case 'bpmn:BoundaryEvent': return BoundaryEvent(activityExtensions, activityElement, parentContext);
     case 'bpmn:CallActivity': return CallActivity(activityExtensions, activityElement, parentContext);
     case 'bpmn:IntermediateThrowEvent': return IntermediateEvent(activityExtensions, activityElement, parentContext);

@@ -114,7 +114,7 @@ function Form(formData, {environment}) {
     function getFieldState() {
       return internalGetFields().reduce((result, f) => {
         const fieldState = f.getState();
-        if (fieldState.hasOwnProperty('value')) result.push(fieldState);
+        if (fieldState.value) result.push(fieldState);
         else if (fieldState.label) result.push(fieldState);
         return result;
       }, []);

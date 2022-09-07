@@ -93,7 +93,7 @@ module.exports = function Connector(connector, activityElement, parentContext) {
       if (serviceFn === null) {
         // eslint-disable-next-line no-console
         console.warn('>> %o/%o MISSING ServiceFn', id, name);
-        return;
+        return callback('Missing service function', null);
       }
       return serviceFn.apply(parentApi, executeArgs);
 

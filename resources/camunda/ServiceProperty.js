@@ -1,9 +1,8 @@
 'use strict';
 
 const Debug = require('debug');
-const getNormalizedResult = require('./getNormalizedResult');
 
-module.exports = function Connector(activityElement
+module.exports = function ServiceProperty(activityElement
   , parentContext
   , properties) {
   const id = activityElement.id;
@@ -12,16 +11,16 @@ module.exports = function Connector(activityElement
   const type = `${$type}:property`;
   const {environment} = parentContext;
   const propValues = {};
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
+  const debug = Debug(`bpmn-engine:service:${type.toLowerCase()}:${id}`);
 
-  debug(`prop:${type}`);
+  debug('prop:${type}: %o', activityElement);
   return {
     type,
     activate,
     deactivate
   };
 
-  function deactivate(..._args) {
+  function deactivate() {
     debug('deactivate');
   }
 
@@ -50,7 +49,7 @@ module.exports = function Connector(activityElement
 
         debug('**OUTPUT: %o', args);
         if (err) {
-          debug(`<${id}> errored: ${err.message}`);
+          debug(`<${id}> error: ${err.message}`);
         } else {
           debug(`<${id}> completed`);
         }
@@ -63,28 +62,6 @@ module.exports = function Connector(activityElement
       debug('getService value=%o', value);
       if (typeof value === 'function') return value;
       return environment.getServiceByName(value);
-    }
-
-    function getOutput(result) {
-      if (!outputParameters) return result;
-
-      const resolveResult = getNormalizedResult(result);
-
-      return getOutputParameters().reduce((output, parm, idx) => {
-        if (parm.valueType === 'expression') {
-          output[parm.name] = parm.resolve(resolveResult);
-        } else {
-          output[parm.name] = result[idx];
-        }
-        return output;
-      }, {});
-    }
-
-    function getOutputParameters(reassign) {
-      if (!outputParameters) return [];
-      if (!reassign && oParms) return oParms;
-      oParms = outputParameters.map((parm) => parm.activate(inputContext));
-      return oParms;
     }
   }
 };

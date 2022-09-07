@@ -8,6 +8,7 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
   const {id, $type, resultVariable} = activityElement;
   const type = `${$type}:resultvariable`;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  debug('ResultVariable element: %o', activityElement);
 
   return {
     id,

@@ -66,6 +66,6 @@ module.exports = function FormField(formField, inputContext, environment) {
   function resume(state) {
     fieldApi.label = state.label;
     fieldApi.defaultValue = state.defaultValue;
-    if (state.hasOwnProperty('value')) set(state.value);
+    if (state.value) set(state.value);
   }
 };
