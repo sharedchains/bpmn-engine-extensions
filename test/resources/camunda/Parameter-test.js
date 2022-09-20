@@ -1,9 +1,18 @@
 'use strict';
 
-const {Environment} = require('bpmn-engine');
 const Parameter = require('../../../resources/camunda/Parameter');
+const camundaExtensions = require('../../../resources/camunda');
+const {Engine} = require('bpmn-engine');
 
 describe('Parameter', () => {
+  const engine = new Engine({
+    source: null,
+    extensions: { camunda: camundaExtensions.extension },
+    moddleOptions: { camunda: camundaExtensions.moddleOptions },
+    variables: {
+      arbval: 37
+    }
+  });
   describe('list', () => {
     it('input returns array', (done) => {
       const parm = Parameter({
@@ -35,7 +44,7 @@ describe('Parameter', () => {
         definition: {
           $type: 'camunda:list'
         }
-      }, Environment());
+      }, engine.environment);
 
       expect(parm.activate({listing: 1}).get()).to.equal(1);
 

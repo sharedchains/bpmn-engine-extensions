@@ -135,7 +135,7 @@ function Parameter(parm, environment) {
     if (value) {
       return hasExpression(value) ? 'expression' : 'constant';
     }
-    if (definition && definition.$type && definition.$type.toLowerCase() === 'camunda:script') return 'script';
+    if (definition && definition.$type) return definition.$type.replace(/^camunda:/, '').toLowerCase();
     return 'named';
   }
 
