@@ -7,17 +7,16 @@ module.exports = {
   onceEvent
 };
 
-function getDefinition(source, extensions) {
+async function getDefinition(source, camundaExtensions) {
   const engine = Engine({
     source,
-    extensions
+    extensions: { camunda: camundaExtensions.extension },
+    moddleOptions: { camunda: camundaExtensions.moddleOptions }
   });
 
-  return new Promise((resolve, reject) => {
-    engine.getDefinition((err, def) => {
-      if (err) return reject(err);
-      resolve(def);
-    });
+  const x = await engine.getDefinitions();
+  return new Promise((resolve) => {
+    resolve(x[0]);
   });
 }
 

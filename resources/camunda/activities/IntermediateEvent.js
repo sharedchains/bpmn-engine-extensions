@@ -6,7 +6,7 @@ const ResultVariableIo = require('../ResultVariableIo');
 const ServiceExpression = require('../ServiceExpression');
 const ServiceProperty = require('../ServiceProperty');
 
-module.exports = function IntermediateCatchEvent(extensions, activityElement, parentContext) {
+module.exports = function IntermediateEvent(extensions, activityElement, parentContext) {
   const isThrow = activityElement.isThrowing;
   const debug = Debug('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id);
   debug('enter : %o', activityElement);
@@ -15,6 +15,8 @@ module.exports = function IntermediateCatchEvent(extensions, activityElement, pa
   let connectorExecutor = null;
   debug('eventType: %o', (isThrow ? 'THROW' : 'CATCH'));
   debug('io: %o', io);
+  debug('activityElement: %o', activityElement);
+  debug('extensions: %o', extensions);
 
   if (!io && resultVariable) {
     extensions.io = ResultVariableIo(activityElement, parentContext);

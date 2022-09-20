@@ -1,14 +1,16 @@
 'use strict';
 
+const Debug = require('debug');
 const camundaExtensions = require('../../../../resources/camunda');
 const factory = require('../../../helpers/factory');
 const nock = require('nock');
 const {Engine} = require('bpmn-engine');
 const {getDefinition} = require('../../../helpers/testHelpers');
+const request = require('request');
 
-const extensions = {
-  camunda: camundaExtensions
-};
+Debug.enable('*');
+const debug = Debug('test:servicetask');
+
 
 describe('ServiceTask', () => {
   describe('io', () => {
@@ -23,22 +25,32 @@ describe('ServiceTask', () => {
         });
 
       const source = factory.resource('service-task-io.bpmn').toString();
-      getDefinition(source, extensions).then((definition) => {
-        definition.environment.addService('getRequest', {
-          module: 'request',
-          fnName: 'get'
+      getDefinition(source, camundaExtensions).then((definition) => {
+        definition.environment.addService('getRequest', (inputContext, callback) => {
+          const message = inputContext.inputArg.content.message;
+          request.get(message.variables.uri, {json: message.variables.json }, (err, resp, body) => {
+            debug('> request err: %o', err);
+            debug('> request resp: %o', resp);
+            debug('> request body: %o', body);
+            if (err) return callback(err);
+            return callback(null, {
+              statusCode: resp.statusCode,
+              data: body
+            });
+          });
         });
-        definition.environment.set('apiPath', 'http://example.com/test');
+        definition.environment.assignVariables({apiPath: 'http://example.com/test'});
 
-        const task = definition.getChildActivityById('serviceTask');
+        const task = definition.getActivityById('serviceTask');
         task.activate();
 
-        task.once('start', (activityApi, executionContext) => {
-          expect(executionContext.getInput()).to.eql({ uri: 'http://example.com/test', json: true });
+        task.once('activity.start', () => {
+          debug('> input: %o', task.behaviour.getInput());
+          expect(task.behaviour.getInput()).to.eql({ uri: 'http://example.com/test', json: true });
         });
 
-        task.once('end', (activityApi, executionContext) => {
-          const output = executionContext.getOutput();
+        task.once('activity.end', () => {
+          const output = task.behaviour.getOutput();
           expect(Object.keys(output)).to.have.same.members(['statusCode', 'body']);
           expect(output.statusCode).to.equal(200);
           expect(output.body).to.eql({ data: 4});
@@ -51,7 +63,7 @@ describe('ServiceTask', () => {
 
     it('returns mapped output', (done) => {
       const source = factory.resource('service-task-io-types.bpmn').toString();
-      getDefinition(source, extensions).then((definition) => {
+      getDefinition(source, camundaExtensions).then((definition) => {
         definition.environment.assignVariables({
           apiPath: 'http://example-2.com',
           input: 2,
@@ -66,7 +78,7 @@ describe('ServiceTask', () => {
         });
 
         const task = definition.getChildActivityById('serviceTask');
-        task.once('end', (activityApi, executionContext) => {
+        task.once('end', (_, executionContext) => {
           const output = executionContext.getOutput();
           expect(output).to.eql({
             statusCode: 200,
@@ -95,7 +107,7 @@ describe('ServiceTask', () => {
         </process>
       </definitions>`;
 
-      getDefinition(source, extensions).then((definition) => {
+      getDefinition(source, camundaExtensions).then((definition) => {
         definition.environment.assignVariables({
           apiPath: 'http://example-2.com',
           input: 2,

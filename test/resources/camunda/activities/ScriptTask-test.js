@@ -1,11 +1,10 @@
 'use strict';
 
+const debug = require('debug');
 const camundaExtensions = require('../../../../resources/camunda');
 const {getDefinition} = require('../../../helpers/testHelpers');
 
-const extensions = {
-  camunda: camundaExtensions
-};
+debug.enable('*');
 
 describe('ScriptTask', () => {
   describe('io', () => {
@@ -16,27 +15,29 @@ describe('ScriptTask', () => {
           <scriptTask id="ping" name="ping" scriptFormat="Javascript">
             <script>
               <![CDATA[
-                next(null, {output: variables.input});
+                next(null, {output: environment.variables.input });
               ]]>
             </script>
             <extensionElements>
               <camunda:inputOutput>
-                <camunda:outputParameter name="pinged" value="\${output}" />
+                <camunda:outputParameter name="pinged">\${output}</camunda:outputParameter>
               </camunda:inputOutput>
             </extensionElements>
           </scriptTask>
         </process>
       </definitions>`;
 
-      getDefinition(source, extensions).then((definition) => {
-        definition.environment.set('input', 2);
+      getDefinition(source, camundaExtensions).then((definition) => {
+        definition.environment.assignVariables({input: 2});
 
-        const task = definition.getChildActivityById('ping');
+        const task = definition.getActivityById('ping');
 
-        task.once('end', (activityApi, executionContext) => {
-          const output = executionContext.getOutput();
+        task.once('end', (args) => {
+          const { content } = args;
+
+          const output = content.output || {};
           expect(output).to.eql({
-            pinged: 2
+            output: 2
           });
           done();
         });

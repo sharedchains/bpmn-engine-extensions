@@ -2,7 +2,7 @@
 
 const Debug = require('debug');
 
-module.exports = function Connector(activityElement, parentContext) {
+module.exports = function SereviceExpression(activityElement, parentContext) {
   const {id, $type, expression} = activityElement;
   const type = `${$type}:expression`;
   const {environment} = parentContext;

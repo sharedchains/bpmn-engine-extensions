@@ -7,7 +7,8 @@ const Parameter = require('./Parameter');
 module.exports = function InputOutput(activity, parentContext, form) {
   const { id, environment } = parentContext;
   const type = activity.$type;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
+  const debug = Debug(`bpmn-engine:${type}`);
+  debug('activity: %o', activity);
 
   debug('activityIO: IN:%o OUT:%o', activity.inputParameters, activity.outputParameters);
   const inputParameters = activity.inputParameters && activity.inputParameters.map((parm) => Parameter(parm, environment));
@@ -35,8 +36,8 @@ module.exports = function InputOutput(activity, parentContext, form) {
   }
 
   function activate(parentApi, inputContext) {
-    const {id: activityId} = parentApi;
-    const {isLoopContext, index} = inputContext;
+    const {id: activityId} = parentApi || {};
+    const {isLoopContext, index} = inputContext || {};
 
     let formInstance, iParms, oParms, resultData;
 

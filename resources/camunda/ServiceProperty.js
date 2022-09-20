@@ -13,7 +13,7 @@ module.exports = function ServiceProperty(activityElement
   const propValues = {};
   const debug = Debug(`bpmn-engine:service:${type.toLowerCase()}:${id}`);
 
-  debug('prop:${type}: %o', activityElement);
+  debug(`prop:${type} ${activityElement.name}`);
   return {
     type,
     activate,
@@ -43,8 +43,11 @@ module.exports = function ServiceProperty(activityElement
 
     function execute(inputArg, callback) {
       debug('execute: %o', serviceFn);
+      debug('execute-context: %o', inputContext);
+      debug('execute-inputArg: %o', inputArg);
       if (typeof serviceFn !== 'function') return callback(new Error(`Property ${property.name} did not resolve to a function`));
 
+      inputArg.content.message = inputContext.content.message;
       serviceFn.call(parentApi, { inputArg, activityElement, properties: propValues }, (err, ...args) => {
 
         debug('**OUTPUT: %o', args);

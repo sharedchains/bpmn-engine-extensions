@@ -65,14 +65,14 @@ module.exports = function Properties(properties, parentContext) {
   }
 
   function getAll() {
-      let propertyValues = {};
-      let activeParameters = parameters.map((parm) => parm.activate(null));
-      return activeParameters.reduce((result, parm) => {
-        const value = parm.get();
-        if (value !== undefined) {
-          result[parm.name] = value;
-        }
-        return result;
-      }, propertyValues);
+    const propertyValues = {};
+    const activeParameters = parameters.map((parm) => parm.activate(null));
+    return activeParameters.reduce((result, parm) => {
+      const value = parm.get();
+      if (value !== undefined) {
+        result[parm.name] = value;
+      }
+      return result;
+    }, propertyValues);
   }
 };

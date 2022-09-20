@@ -5,7 +5,8 @@ const {Script} = require('vm');
 
 module.exports = function Listener(listener, parentContext)
 {
-  const { event, script, fields } = listener;
+  const { event, script } = listener;
+  const fields = listener.fields || {};
   const type = 'camunda:ExecutionListeners:'+event;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
   debug('listener: %o', listener);
@@ -29,81 +30,79 @@ module.exports = function Listener(listener, parentContext)
     debug('discard:%o -> %o', activityElement.id, evt);
   }
 
-  function activate(_context, activityElement) {
+  function activate(parentApi, executionContext) {
     discarded = false;
     const evt = event==='start' ? 'activity.enter' : 'activity.end';
     debug('activate[%o][%o] script:%o'
       , evt
-      , activityElement.id
+      , parentApi.id
       , script);
     if (script.value) {
-      this.jsScript = new Script(script.value);
+      jsScript = new Script(script.value);
     }
 
-    const broker = activityElement.broker;
+    const broker = parentApi.broker;
 
     debug('subscripe to %o', evt)
     broker.subscribeOnce('event', evt
       , (args) => {
-        debug('execute: %o -> %o', activityElement.id, args);
-        execute(activityElement, parentContext, resources);
+        debug('execute: %o -> %o', parentApi.id, args);
+        execute(parentApi, executionContext, resources);
       }, { noAck: true });
 
   }
 
-  function execute(elementApi, engineApi, resources, callback) {
+  function execute(parentApi, executionContext, resources, callback) {
     if (null===resources)
       return ;
 
     if (discarded) {
-	    debug(`${elementApi.id} was discarded!`);
+	    debug(`${parentApi.id} was discarded!`);
       return ;
     }
 
-    /*
-	  debug(`${elementApi.id} -execute- moddle: %o`, moddle);
-    debug(`${elementApi.id} -execute- context: %o`, parentContext); 
-    debug(`${elementApi.id} -execute- engine: %o`, engineApi);
-    */
-    debug(`${elementApi.id} ${script.scriptFormat} -execute- resources: %o`, resources);
+    debug(`${parentApi.id} ${script.scriptFormat} -execute- resources: %o`, resources);
 
     if ('javascript'!==script.scriptFormat)
       return ;
 
     if (fields && fields.length>0) {
       for(let idx in fields) {
-        fields[idx].value = elementApi.environment.resolveExpression(fields[idx].expression)
+        fields[idx].value = parentApi.environment.resolveExpression(fields[idx].expression)
       }
       debug(`assigned fields: %o`, fields);
     }
 
-    debug(`${elementApi.id} ${script.resource} exists ?`);
+    debug(`${parentApi.id} ${script.resource} exists ?`);
     if (script.resource && resources[script.resource])
     {
       let execFunc = resources[script.resource];
       
       if (execFunc instanceof Function) {
-        debug(`${elementApi.id} ${script.resource} is a function`);
-        execFunc(fields, elementApi, engineApi, callback);
+        debug(`${parentApi.id} ${script.resource} is a function`);
+        execFunc(fields, parentApi, executionContext, callback);
+        return ;
       }
       if (execFunc instanceof Object
       && execFunc.execute
       && execFunc.execute instanceof Function) {
-        debug(`${elementApi.id} ${script.resource} has execute function`);
-        execFunc.execute(fields, elementApi, engineApi, callback);
+        debug(`${parentApi.id} ${script.resource} has execute function`);
+        execFunc.execute(fields, parentApi, executionContext, callback);
       }
       return ;
     }
-    if (null!==jsScript)
-    {
-      debug(`${elementApi.id} has jsScript`);
-      const timers = environment.timers.register(elementApi);
-      return this.jsScript.runInNewContext({
-          ...fields
-          , ...elementApi
-          , ...timers
-          , next: (...args) => { callback(args); }});
+    if (!jsScript) {
+      debug(`${parentApi.id} I don't know what to do..`);
+      return ;
     }
-    debug(`${elementApi.id} I don't know what to do..`);
+
+    debug(`${parentApi.id} has jsScript`);
+      const timers = environment.timers.register(parentApi);
+      return jsScript.runInNewContext({
+          next: (...args) => { callback(args); }
+          , ...fields
+          , ...parentApi
+          , ...timers
+        });
   }
 }

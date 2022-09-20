@@ -11,38 +11,43 @@ const ScriptTask = require('./ScriptTask');
 module.exports = function Activity(extensions, activityElement, parentContext) {
   const {id, $type, eventDefinitions} = activityElement.behaviour;
   const {form, io, properties, listeners} = extensions;
-  const activityExtensions = { io, properties, listeners};
-  const debug = Debug(`bpmn-engine:camunda:Activity:${$type}:${id}`);
+  const debug = Debug(`bpmn-engine:camunda:activity:${$type.toLowerCase()}:${id}`);
 
-  debug(' elemType:%o actElem:%o <<', $type, activityElement);
-  debug(' extensions:%o', extensions);
   switch ($type) {
-    case 'bpmn:ServiceTask': return ServiceTask(activityExtensions, activityElement, parentContext);
-    case 'bpmn:ScriptTask': return ScriptTask(activityExtensions, activityElement, parentContext);
-    case 'bpmn:BoundaryEvent': return BoundaryEvent(activityExtensions, activityElement, parentContext);
-    case 'bpmn:CallActivity': return CallActivity(activityExtensions, activityElement, parentContext);
-    case 'bpmn:IntermediateThrowEvent': return IntermediateEvent(activityExtensions, activityElement, parentContext);
-    case 'bpmn:IntermediateCatchEvent': return IntermediateEvent(activityExtensions, activityElement, parentContext);
+    case 'bpmn:ServiceTask': return ServiceTask(extensions, activityElement, parentContext);
+    case 'bpmn:ScriptTask': return ScriptTask(extensions, activityElement, parentContext);
+    case 'bpmn:BoundaryEvent': return BoundaryEvent(extensions, activityElement, parentContext);
+    case 'bpmn:CallActivity': return CallActivity(extensions, activityElement, parentContext);
+    case 'bpmn:IntermediateThrowEvent': return IntermediateEvent(extensions, activityElement, parentContext);
+    case 'bpmn:IntermediateCatchEvent': return IntermediateEvent(extensions, activityElement, parentContext);
     case 'bpmn:StartEvent': return StartEvent();
+    default:
+      return Base();
   }
-  return Base();
 
   function StartEvent() {
     if (eventDefinitions) {
       const hasMessage = eventDefinitions.find(event => {
         return event.behaviour.$type === 'bpmn:MessageEventDefinition';
       });
-      if (hasMessage) return IntermediateEvent(activityExtensions, activityElement, parentContext);
+      if (hasMessage) return IntermediateEvent(extensions, activityElement, parentContext);
     }
     return Base();
   }
 
   function Base() {
-    debug('>base');
+    debug('BASE');
     let loadedIo = io;
+    let ioApi = null;
     if (!loadedIo && form) {
       loadedIo = FormIo(form, parentContext);
     }
+    activityElement.behaviour.getInput = () => {
+      return ioApi.getInput();
+    };
+    activityElement.behaviour.getOutput = () => {
+      return ioApi.getOutput();
+    };
     return {
       io: loadedIo,
       properties,
@@ -62,12 +67,17 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       if (listeners && undefined !== listeners) {
         listeners.activate(message, activityElement);
       }
+      if (io && io.activate) {
+        debug('activate io');
+        ioApi = io.activate(activityElement, message);
+      }
     }
     function deactivate(message) {
       debug('deactivate');
       if (listeners && undefined !== listeners) {
         listeners.deactivate(message, activityElement);
       }
+      if (ioApi && ioApi.setResult) ioApi.setResult(message.content.output);
     }
 
     function execute(...args) {

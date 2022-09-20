@@ -10,12 +10,14 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   const debug = Debug('bpmn-engine:camunda:ServiceTask:' + activityElement.id);
   debug('enter : %o', extensions);
   const {io, properties, listeners } = extensions;
-  const {extensionElements, resultVariable} = activityElement.behaviour;
+  const {extensionElements, resultVariable } = activityElement.behaviour;
+  const serviceImplementation = activityElement.behaviour.Service;
   const loopCharacteristics = activityElement.behaviour.loopCharacteristics
     && activityElement.behaviour.loopCharacteristics.Behaviour(activityElement
       , activityElement.behaviour.loopCharacteristics);
   const hasExtValues = extensionElements && extensionElements.values;
   let connectorExecutor = null;
+  let ioApi = null;
   debug('extensions: %o', extensionElements);
   debug('io: %o', io);
 
@@ -25,20 +27,56 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   extensions.listeners = listeners;
   extensions.service = loadService();
   extensions.loopCharacteristics = loopCharacteristics;
-  activityElement.behaviour.Service = executeConnector;
-  activityElement.behaviour.listeners = listeners;
-  extensions.activate = (message) => {
-    debug('activate %o - listeners: %o', message, listeners);
-    if (listeners && undefined !== listeners) listeners.activate(message, activityElement);
-    if (extensions.service && extensions.service.activate) {
-      connectorExecutor = extensions.service.activate(message
-        , { isLoopContext: message.isMultiInstance, index: 0 });
+
+  activityElement.behaviour.Service = (activity, executionMessage) => {
+    if (serviceImplementation) return serviceImplementation(activity, executionMessage);
+    if (connectorExecutor) return connectorExecutor;
+    const service = parentContext.environment.getServiceByName(activityElement.id);
+    if (service) {
+      if (service.execute) return service;
+      return {
+        execute: (...args) => {
+          service(args);
+        }
+      };
     }
   };
 
-  extensions.deactivate = (message) => {
-    debug('deactivate message: %o - listeners? %o', message, listeners);
-    if (listeners && undefined !== listeners) listeners.deactivate(message, activityElement);
+  activityElement.behaviour.listeners = listeners;
+  activityElement.behaviour.getInput = () => {
+    return ioApi.getInput();
+  };
+  activityElement.behaviour.getOutput = () => {
+    return ioApi.getOutput();
+  };
+
+  extensions.activate = (inputContext) => {
+    debug('activate - element: %o', activityElement.id);
+    if (io && io.activate) {
+      debug('activate io');
+      ioApi = io.activate(activityElement, inputContext);
+    }
+
+    if (!inputContext.content.message) inputContext.content.message = {};
+    inputContext.content.message.variables = Object.assign({}, inputContext.content.message.variables,
+      ioApi.getInput()
+    );
+    if (listeners && undefined !== listeners) {
+      debug('activate listeners');
+      listeners.activate(activityElement, inputContext);
+    }
+
+    if (extensions.service && extensions.service.activate) {
+      debug('activate - service: %o', extensions.service);
+      connectorExecutor = extensions.service.activate(activityElement
+        , Object.assign({}, inputContext, { isLoopContext: inputContext.isMultiInstance, index: 0 }));
+    }
+  };
+
+  extensions.deactivate = (inputContext) => {
+    debug('deactivate message: %o - listeners? %o', inputContext, listeners);
+    if (listeners && undefined !== listeners) listeners.deactivate(activityElement, inputContext);
+    if (ioApi && ioApi.setResult) ioApi.setResult(inputContext.content.output);
   };
 
   extensions.getState = () => {
@@ -68,11 +106,5 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
         , parentContext
         , properties);
     }
-  }
-
-  function executeConnector(...args) {
-    debug('executing connector: %o', args);
-    debug('has connector? %o', (connectorExecutor ? connectorExecutor : 'nada'));
-    if (connectorExecutor) return connectorExecutor;
   }
 };

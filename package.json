@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha && eslint . --cache",
+    "mocha": "mocha",
     "toc": "node scripts/generate-api-toc ./API.md,./docs/Examples.md,./docs/Form.md",
     "test-md": "node scripts/test-markdown ./API.md && node scripts/test-markdown ./docs/Examples.md"
   },

@@ -25,23 +25,21 @@ module.exports = function Listeners(listeners, parentContext) {
     atStart
   };
 
-  function activate(parentApi, activityElement) {
-    debug('activate: key: ' + parentApi.fields.routingKey);
-    if (parentApi.fields.routingKey !== 'run.enter') return;
+  function activate(parentApi, executionContext) {
+    if (!(executionContext && executionContext.fields && executionContext.fields.routingKey === 'run.enter')) return;
 
     for (const idx in atEventList) {
-      atEventList[idx].activate(parentApi, activityElement);
+      atEventList[idx].activate(parentApi, executionContext);
     }
 
     debug('>> activated!');
   }
 
-  function deactivate(parentApi, activityElement) {
-    debug('<< deactivate: %o', parentApi.fields.routingKey);
-    if (parentApi.fields.routingKey !== 'run.leave') return;
+  function deactivate(parentApi, executionContext) {
+    if (!(executionContext && executionContext.fields && executionContext.fields.routingKey === 'run.leave')) return;
 
     for (const idx in atEventList) {
-      atEventList[idx].deactivate(parentApi, activityElement);
+      atEventList[idx].deactivate(parentApi, executionContext);
     }
     debug('deactivated');
   }

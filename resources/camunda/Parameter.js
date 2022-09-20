@@ -2,17 +2,18 @@
 
 const Debug = require('debug');
 const {hasExpression, isSupportedScriptType} = require('./utils');
+const {execute: executeScript, parse: parseScript} = require('./script-helper');
 
 module.exports = Parameter;
 
 function Parameter(parm, environment) {
   const {name, $type: type, value, definition} = parm;
-  const valueType = getValueType();
-  const debugType = `type <${name}> ${valueType}`;
 
-  const {resolveExpression, executeScript} = environment;
+  const {resolveExpression} = environment;
 
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+
+  const valueType = getValueType();
 
   debug(`init ${type} <${name}> as type ${valueType}`);
 
@@ -21,8 +22,8 @@ function Parameter(parm, environment) {
     const {scriptFormat} = definition;
     if (!isSupportedScriptType(scriptFormat)) throw new Error(`${scriptFormat} is unsupported`);
 
-    script = definition.value;
     scriptName = `${name}.io`;
+    script = parseScript(scriptName, definition.value);
   }
 
   const entries = getEntries(parm);
@@ -37,6 +38,7 @@ function Parameter(parm, environment) {
   function activate(inputContext) {
     const activatedEntries = activateEntries();
     let resultValue;
+    const context = Object.assign({}, inputContext, { environment });
 
     return {
       name,
@@ -49,7 +51,7 @@ function Parameter(parm, environment) {
 
     function get() {
       if (resultValue !== undefined) return resultValue;
-      resultValue = internalGet(inputContext);
+      resultValue = internalGet(context);
       return resultValue;
     }
 
@@ -70,9 +72,10 @@ function Parameter(parm, environment) {
         case 'expression':
           _value = resolveExpression(value, from);
           break;
-        case 'script':
-          _value = executeScript(scriptName, script, from);
+        case 'script': {
+          _value = executeScript(script, from);
           break;
+        }
         case 'map':
           _value = getMap();
           break;
@@ -82,7 +85,8 @@ function Parameter(parm, environment) {
         default:
           _value = getNamedValue(from);
       }
-      debug('get %o value returned %o', debugType, _value);
+
+      //      debug('get %o value returned %o', debugType, _value);
       return _value;
     }
 
@@ -103,8 +107,13 @@ function Parameter(parm, environment) {
     function getNamedValue(from) {
       from = from || inputContext;
       let result = from[name];
+      /*
       if (result === undefined && from.variables) {
         result = from.variables[name];
+      }
+      */
+      if (result === undefined && from.environment.variables) {
+        result = from.environment.variables[name];
       }
       return result;
     }
@@ -126,9 +135,7 @@ function Parameter(parm, environment) {
     if (value) {
       return hasExpression(value) ? 'expression' : 'constant';
     }
-    if (definition && definition.$type) {
-      return parm.definition.$type.replace('camunda:', '').toLowerCase();
-    }
+    if (definition && definition.$type && definition.$type.toLowerCase() === 'camunda:script') return 'script';
     return 'named';
   }
 
