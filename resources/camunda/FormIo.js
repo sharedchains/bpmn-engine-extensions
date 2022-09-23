@@ -42,18 +42,19 @@ module.exports = function FormIo(form, {environment}) {
       setResult
     };
 
-    function getForm() {
-      if (formInstance) return formInstance;
-      formInstance = form.activate(parentApi, inputContext);
+    function getForm(context) {
+      const ctxObject = Object.assign({}, inputContext, context);
+      if (formInstance && (!context || !ctxObject.content.isMultiInstance)) return formInstance;
+      formInstance = form.activate(parentApi, ctxObject);
       return formInstance;
     }
 
-    function getInput() {
-      return getForm().getInput();
+    function getInput(context) {
+      return getForm(context).getInput();
     }
 
-    function getOutput() {
-      return getForm().getOutput();
+    function getOutput(context) {
+      return getForm(context).getOutput();
     }
 
     function getState() {
@@ -65,9 +66,9 @@ module.exports = function FormIo(form, {environment}) {
       getForm().resume(ioState);
     }
 
-    function save() {
-      if (!formInstance) return {};
-      environment.assignResult(getOutput());
+    function save(context) {
+      if (!getForm(context)) return;
+      environment.assignVariables(getOutput());
     }
 
     function setOutputValue(name, value) {

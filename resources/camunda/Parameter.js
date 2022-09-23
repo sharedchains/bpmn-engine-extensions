@@ -107,11 +107,9 @@ function Parameter(parm, environment) {
     function getNamedValue(from) {
       from = from || inputContext;
       let result = from[name];
-      /*
       if (result === undefined && from.variables) {
         result = from.variables[name];
       }
-      */
       if (result === undefined && from.environment.variables) {
         result = from.environment.variables[name];
       }

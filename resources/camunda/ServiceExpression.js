@@ -3,10 +3,11 @@
 const Debug = require('debug');
 
 module.exports = function SereviceExpression(activityElement, parentContext) {
-  const {id, $type, expression} = activityElement;
+  const {id, $type} = activityElement;
   const type = `${$type}:expression`;
   const {environment} = parentContext;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const expression = activityElement.expression || activityElement.behaviour.expression;
 
   return {
     type,
@@ -28,7 +29,8 @@ module.exports = function SereviceExpression(activityElement, parentContext) {
     function execute(inputArg, callback) {
       if (typeof serviceFn !== 'function') return callback(new Error(`Expression ${expression} did not resolve to a function`));
 
-      serviceFn.call(parentApi, inputArg, (err, ...args) => {
+      const inputArgs = Object.assign({}, { variables: environment.variables } );
+      serviceFn.call(parentApi, inputArgs, (err, ...args) => {
         callback(err, args);
       });
     }

@@ -177,7 +177,7 @@ describe('Activity InputOutput', () => {
         const task = definition.getActivityById('task');
 
         task.once('start', () => {
-          const inputs = task.behaviour.getInput();
+          const inputs = task.behaviour.io.getInput();
           expect(inputs).to.eql({inputMessage: 11});
           done();
         });
@@ -357,7 +357,7 @@ describe('Activity InputOutput', () => {
 
         const task = definition.getActivityById('task');
         task.once('end', () => {
-          expect(task.behaviour.getOutput()).to.eql({message: 22});
+          expect(task.behaviour.io.getOutput()).to.eql({message: 22});
           done();
         });
         task.run();
@@ -408,7 +408,7 @@ describe('Activity InputOutput', () => {
     localEngine.once('end', (execution) => {
       const task = execution.getActivityById('Task_15g4wm5');
       expect(task).to.not.be.null;
-      const taskOutput = task.behaviour.getOutput();
+      const taskOutput = task.behaviour.io.getOutput();
       expect(taskOutput).to.not.be.null;
       expect(taskOutput.serviceResult).to.not.be.null;
       expect(taskOutput.serviceResult).to.eql(['dummy']);

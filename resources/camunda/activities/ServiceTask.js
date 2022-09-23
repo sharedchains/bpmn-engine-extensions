@@ -9,19 +9,22 @@ const ServiceProperty = require('../ServiceProperty');
 module.exports = function ServiceTask(extensions, activityElement, parentContext) {
   const debug = Debug('bpmn-engine:camunda:ServiceTask:' + activityElement.id);
   debug('enter : %o', extensions);
-  const {io, properties, listeners } = extensions;
-  const {extensionElements, resultVariable } = activityElement.behaviour;
+  const { properties, listeners } = extensions;
+  let { io } = extensions;
+  const {extensionElements, resultVariable, expression } = activityElement.behaviour;
   const serviceImplementation = activityElement.behaviour.Service;
-  const loopCharacteristics = activityElement.behaviour.loopCharacteristics
-    && activityElement.behaviour.loopCharacteristics.Behaviour(activityElement
-      , activityElement.behaviour.loopCharacteristics);
+
+  const _loopCharacteristics = activityElement.behaviour.loopCharacteristics;
+  const loopCharacteristics = _loopCharacteristics
+    && _loopCharacteristics.Behaviour(activityElement
+      , _loopCharacteristics);
+
   const hasExtValues = extensionElements && extensionElements.values;
   let connectorExecutor = null;
-  let ioApi = null;
   debug('extensions: %o', extensionElements);
   debug('io: %o', io);
 
-  if (!io && resultVariable) extensions.io = ResultVariableIo(activityElement.behaviour, parentContext);
+  if (!io && resultVariable) io = extensions.io = ResultVariableIo(activityElement.behaviour, parentContext);
   if (io && io.allowReturnInputContext) io.allowReturnInputContext(true);
 
   extensions.listeners = listeners;
@@ -43,23 +46,18 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   };
 
   activityElement.behaviour.listeners = listeners;
-  activityElement.behaviour.getInput = () => {
-    return ioApi.getInput();
-  };
-  activityElement.behaviour.getOutput = () => {
-    return ioApi.getOutput();
-  };
 
   extensions.activate = (inputContext) => {
     debug('activate - element: %o', activityElement.id);
     if (io && io.activate) {
       debug('activate io');
-      ioApi = io.activate(activityElement, inputContext);
+      activityElement.behaviour.io = io.activate(activityElement, inputContext);
     }
 
     if (!inputContext.content.message) inputContext.content.message = {};
-    inputContext.content.message.variables = Object.assign({}, inputContext.content.message.variables,
-      ioApi.getInput()
+    inputContext.content.message.variables = Object.assign({},
+      inputContext.content.message.variables,
+      activityElement.behaviour.io ? activityElement.behaviour.io.getInput() : null
     );
     if (listeners && undefined !== listeners) {
       debug('activate listeners');
@@ -76,6 +74,8 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   extensions.deactivate = (inputContext) => {
     debug('deactivate message: %o - listeners? %o', inputContext, listeners);
     if (listeners && undefined !== listeners) listeners.deactivate(activityElement, inputContext);
+
+    const ioApi = activityElement.behaviour.io;
     if (ioApi && ioApi.setResult) ioApi.setResult(inputContext.content.output);
   };
 
@@ -98,9 +98,10 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
       if (source) return Connector(source, activityElement, parentContext);
     }
 
-    debug('loadService: expression: %o', activityElement.expression);
+    debug('loadService: expression: %o', expression);
     debug('loadService: properties: %o', properties);
-    if (activityElement.expression) return ServiceExpression(activityElement, parentContext);
+    if (expression) return ServiceExpression(activityElement, parentContext);
+
     if (properties && properties.getProperty('service')) {
       return ServiceProperty(activityElement
         , parentContext

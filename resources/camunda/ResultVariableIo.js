@@ -95,10 +95,11 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
     }
 
     function setResult(result1, ...args) {
+      const name = getVariableName(true);
       if (args.length) {
-        resultData = [result1, ...args];
+        resultData = { [name]: [result1, ...args] };
       } else {
-        resultData = result1;
+        resultData = { [name]: result1 };
       }
     }
 

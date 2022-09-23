@@ -66,6 +66,7 @@ module.exports = function InputOutput(activity, parentContext, form) {
     }
 
     function getInput() {
+      debug('>> getInput');
       const result = internalGetInput(true);
       if (!result && returnInputContext) {
         return inputContext;

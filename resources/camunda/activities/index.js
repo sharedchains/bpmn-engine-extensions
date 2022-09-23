@@ -38,50 +38,40 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   function Base() {
     debug('BASE');
     let loadedIo = io;
-    let ioApi = null;
     if (!loadedIo && form) {
       loadedIo = FormIo(form, parentContext);
     }
-    activityElement.behaviour.getInput = () => {
-      return ioApi.getInput();
-    };
-    activityElement.behaviour.getOutput = () => {
-      return ioApi.getOutput();
-    };
-    return {
+    return { activate, deactivate };
+    /*
+      only activate and deactivate are public...
       io: loadedIo,
       properties,
       listeners,
-      activate,
-      deactivate,
       execute,
       resume,
-      id, $type
+      id, $type,
+      activate,
+      deactivate
     };
+      */
 
-    function resume(...args) {
-      debug('------- resume: %o', args);
-    }
     function activate(message) {
-      debug('activate');
+      debug('BASE - activate - message: %o', message);
       if (listeners && undefined !== listeners) {
         listeners.activate(message, activityElement);
       }
-      if (io && io.activate) {
+      if (loadedIo && loadedIo.activate) {
         debug('activate io');
-        ioApi = io.activate(activityElement, message);
+        activityElement.behaviour.io = loadedIo.activate(activityElement, message);
       }
     }
     function deactivate(message) {
-      debug('deactivate');
+      debug('BASE - deactivate');
       if (listeners && undefined !== listeners) {
         listeners.deactivate(message, activityElement);
       }
+      const ioApi = activityElement.behaviour.io;
       if (ioApi && ioApi.setResult) ioApi.setResult(message.content.output);
-    }
-
-    function execute(...args) {
-      debug('execute %o', args);
     }
   }
 };

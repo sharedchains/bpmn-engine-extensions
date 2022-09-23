@@ -35,15 +35,16 @@ function Camunda(activityElement, parentContext) {
     form
   }, activityElement, parentContext);
 
-  function loadIo(loadedForm) {
+  function loadIo(loadedForm, inputAssociation) {
     debug('loadIO: form: %o', loadedForm);
+    debug('loadIO: dataInput: %o', inputAssociation);
+    debug('loadIO: dataInput: %o', behaviour);
     if (hasExtValues) {
       const source = extensionElements.values.find((elm) => elm.$type === 'camunda:InputOutput');
-      debug('loadIO: source: %o', source);
       if (source) return InputOutput(source, parentContext, loadedForm);
     }
-    if (activityElement.resultVariable) {
-      return ResultVariableIo(activityElement, parentContext, loadedForm);
+    if (activityElement.behaviour.resultVariable) {
+      return ResultVariableIo(activityElement.behaviour, parentContext, loadedForm);
     }
   }
 
