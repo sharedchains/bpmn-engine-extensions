@@ -20,14 +20,15 @@ function Camunda(activityElement, parentContext) {
   const { extensionElements, formKey } = behaviour;
   const hasExtValues = extensionElements && extensionElements.values;
   const { type, id } = activityElement;
-  const debug = Debug(`bpmn-engine:camunda:${type}:${id}`);
-  debug(`init-activity: ${activityElement.name}`);
+  const debug = Debug(`bpmn-engine:camunda:${type.replace(/bpmn:/, '')}:${id}`);
+  debug(`Camunda(construct) ${activityElement.name || activityElement.id}`);
 
   const listeners = loadListeners();
   const properties = loadProperties();
   const form = loadForm();
   const io = loadIo(form);
 
+  debug(`Camunda(construct) has ${listeners && listeners.length > 0 ? 'listeners ' : ''}${properties ? 'properties ' : ''}${form ? 'form ' : ''}${io ? 'io ' : ''}`);
   return Activity({
     io,
     properties,
@@ -35,10 +36,7 @@ function Camunda(activityElement, parentContext) {
     form
   }, activityElement, parentContext);
 
-  function loadIo(loadedForm, inputAssociation) {
-    debug('loadIO: form: %o', loadedForm);
-    debug('loadIO: dataInput: %o', inputAssociation);
-    debug('loadIO: dataInput: %o', behaviour);
+  function loadIo(loadedForm) {
     if (hasExtValues) {
       const source = extensionElements.values.find((elm) => elm.$type === 'camunda:InputOutput');
       if (source) return InputOutput(source, parentContext, loadedForm);

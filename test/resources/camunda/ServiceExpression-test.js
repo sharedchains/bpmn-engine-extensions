@@ -4,14 +4,10 @@ const camundaExtensions = require('../../../resources/camunda');
 const factory = require('../../helpers/factory');
 const {getDefinition} = require('../../helpers/testHelpers');
 
-const extensions = {
-  camunda: camundaExtensions
-};
-
 describe('Service expression', () => {
   let definition;
   beforeEach(async () => {
-    definition = await getDefinition(factory.resource('service-task.bpmn'), extensions);
+    definition = await getDefinition(factory.resource('service-task.bpmn'), camundaExtensions);
   });
 
   it('executes service on taken inbound', (done) => {
@@ -19,11 +15,11 @@ describe('Service expression', () => {
       next(null, true);
     });
 
-    const task = definition.getChildActivityById('serviceTask');
+    const task = definition.getActivityById('serviceTask');
     task.activate();
 
-    task.once('end', (activityApi, executionContext) => {
-      expect(executionContext.getOutput()).to.eql([true]);
+    task.once('end', () => {
+      expect(task.behaviour.io.getOutput()).to.eql([true]);
       done();
     });
 
@@ -46,8 +42,8 @@ describe('Service expression', () => {
       callback(new Error('Failed'));
     });
 
-    const task = definition.getChildActivityById('serviceTask');
-    const boundEvent = definition.getChildActivityById('errorEvent');
+    const task = definition.getActivityById('serviceTask');
+    const boundEvent = definition.getActivityById('errorEvent');
     boundEvent.activate();
     task.activate();
 

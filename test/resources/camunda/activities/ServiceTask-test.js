@@ -1,15 +1,11 @@
 'use strict';
 
-const Debug = require('debug');
 const camundaExtensions = require('../../../../resources/camunda');
 const factory = require('../../../helpers/factory');
 const nock = require('nock');
 const {Engine} = require('bpmn-engine');
-const {getDefinition} = require('../../../helpers/testHelpers');
+const {getDefinition, debug} = require('../../../helpers/testHelpers');
 const request = require('request');
-
-Debug.enable('*');
-const debug = Debug('test:servicetask');
 
 
 describe('ServiceTask', () => {

@@ -8,9 +8,7 @@ module.exports = function InputOutput(activity, parentContext, form) {
   const { id, environment } = parentContext;
   const type = activity.$type;
   const debug = Debug(`bpmn-engine:${type}`);
-  debug('activity: %o', activity);
 
-  debug('activityIO: IN:%o OUT:%o', activity.inputParameters, activity.outputParameters);
   const inputParameters = activity.inputParameters && activity.inputParameters.map((parm) => Parameter(parm, environment));
   const outputParameters = activity.outputParameters && activity.outputParameters.map((parm) => Parameter(parm, environment));
 
@@ -37,12 +35,11 @@ module.exports = function InputOutput(activity, parentContext, form) {
 
   function activate(parentApi, inputContext) {
     const {id: activityId} = parentApi || {};
-    const {isLoopContext, index} = inputContext || {};
+    const {isLoopContext, index} = inputContext ? inputContext.content || {} : {};
 
     let formInstance, iParms, oParms, resultData;
 
     debug(`<${activityId}>${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
-
     const ioApi = {
       id,
       type,
@@ -66,11 +63,12 @@ module.exports = function InputOutput(activity, parentContext, form) {
     }
 
     function getInput() {
-      debug('>> getInput');
       const result = internalGetInput(true);
       if (!result && returnInputContext) {
+        debug('getInput: (inputContext) %o', inputContext);
         return inputContext;
       }
+      debug('getInput: (internalGet) %o', (result || {}));
       return result || {};
     }
 
@@ -153,14 +151,26 @@ module.exports = function InputOutput(activity, parentContext, form) {
     }
 
     function getOutputContext() {
-      return Object.assign(getInputContext(), getNormalizedResult(resultData || {}));
+      const _inputContext = getInputContext();
+      _inputContext.variables = Object.assign({}
+        , _inputContext.variables
+        , getNormalizedResult(resultData || {}));
+      debug('>>> OUTPUT-CTX: %o', _inputContext);
+      return _inputContext;
     }
 
     function getInputContext() {
-      return Object.assign({}, inputContext, getInput());
+      const _inputContext = Object.assign({}, inputContext);
+      _inputContext.variables = Object.assign({}
+        , _inputContext.variables
+        , getInput()
+      );
+      debug('>>> INPUT-CTX: %o', _inputContext);
+      return _inputContext;
     }
 
     function getInputParameters() {
+      debug('> getInputParameters %o', (iParms?' has IParms':''));
       if (iParms) return iParms;
       if (!inputParameters) return [];
       iParms = inputParameters.map((parm) => parm.activate(inputContext));
@@ -169,8 +179,10 @@ module.exports = function InputOutput(activity, parentContext, form) {
 
     function getOutputParameters(reassign) {
       if (!outputParameters) return [];
+      debug('> getOutputParameters %o', (reassign ? ' reassign' : (oParms?' has oParms':'')));
       if (!reassign && oParms) return oParms;
-      oParms = outputParameters.map((parm) => parm.activate(getOutputContext()));
+      const outputContext = getOutputContext();
+      oParms = outputParameters.map((parm) => parm.activate(outputContext));
       return oParms;
     }
   }

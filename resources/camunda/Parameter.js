@@ -9,7 +9,7 @@ module.exports = Parameter;
 function Parameter(parm, environment) {
   const {name, $type: type, value, definition} = parm;
 
-  const {resolveExpression} = environment;
+  const {resolveExpression} = environment.expressions;
 
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
 
@@ -65,15 +65,24 @@ function Parameter(parm, environment) {
 
     function internalGet(from) {
       let _value = null;
+      from = from || inputContext;
+      const ctx = Object.assign({}, from
+        , { variables: Object.assign({}
+            , from.environment ? from.environment.variables : {}
+            , from.content && from.content.message ? from.content.message.variables : {}
+            , from.content
+            , from.variables
+        )
+        });
       switch (valueType) {
         case 'constant':
           _value = value;
           break;
         case 'expression':
-          _value = resolveExpression(value, from);
+          _value = resolveExpression(value, ctx.variables);
           break;
         case 'script': {
-          _value = executeScript(script, from);
+          _value = executeScript(script, ctx.variables);
           break;
         }
         case 'map':
@@ -83,7 +92,7 @@ function Parameter(parm, environment) {
           _value = getList();
           break;
         default:
-          _value = getNamedValue(from);
+          _value = getNamedValue(ctx);
       }
 
       //      debug('get %o value returned %o', debugType, _value);
@@ -107,11 +116,8 @@ function Parameter(parm, environment) {
     function getNamedValue(from) {
       from = from || inputContext;
       let result = from[name];
-      if (result === undefined && from.variables) {
+      if (result === undefined) {
         result = from.variables[name];
-      }
-      if (result === undefined && from.environment.variables) {
-        result = from.environment.variables[name];
       }
       return result;
     }

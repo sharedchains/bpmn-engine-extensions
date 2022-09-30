@@ -2,13 +2,12 @@
 
 const camundaExtensions = require('../../../resources/camunda');
 const factory = require('../../helpers/factory');
+const {getDefinition, debug} = require('../../helpers/testHelpers');
 const nock = require('nock');
 const request = require('request');
-const {getDefinition} = require('../../helpers/testHelpers');
-
-const extensions = {
-  camunda: camundaExtensions
-};
+const { expect } = require('chai');
+const EventEmitter2 = require('eventemitter2');
+const { uniqueID } = require('mocha/lib/utils');
 
 describe('Connector', () => {
   describe('input/output', () => {
@@ -35,7 +34,7 @@ describe('Connector', () => {
                 <camunda:connectorId>sendEmail</camunda:connectorId>
               </camunda:connector>
               <camunda:inputOutput>
-                <camunda:inputParameter name="to" value="\${variables.emailAddress}" />
+                <camunda:inputParameter name="to" value="\${emailAddress}" />
                 <camunda:inputParameter name="ticketId" value="987654" />
                 <camunda:inputParameter name="supportEmail" value="support@example.com" />
               </camunda:inputOutput>
@@ -63,32 +62,36 @@ describe('Connector', () => {
           </serviceTask>
         </process>
       </definitions>`;
-      context = await getDefinition(source, extensions);
+      context = await getDefinition(source, camundaExtensions);
     });
 
     describe('input', () => {
       it('calls service with connector input as arguments', (done) => {
-        context.environment.addService('sendEmail', (to, subject, message) => {
+        // eslint-disable-next-line no-unused-vars
+        context.environment.addService('sendEmail', (serviceContext, _callback) => {
+          const { to, subject, message } = serviceContext.inputArgs;
           expect(to).to.equal('to@example.com');
           expect(subject).to.equal('Resolved 987654');
           expect(message).to.eql(['Your ticket 987654 was resolved.', 'Best regards,', 'support@example.com']);
           done();
         });
-        context.environment.set('emailAddress', 'to@example.com');
+        context.environment.assignVariables({emailAddress: 'to@example.com'});
 
-        const task = context.getChildActivityById('sendEmail_1');
+        const task = context.getActivityById('sendEmail_1');
         task.run();
       });
 
       it('unresolved arguments are passed as undefined', (done) => {
-        context.environment.addService('sendEmail', (to, subject, message) => {
+        // eslint-disable-next-line no-unused-vars
+        context.environment.addService('sendEmail', (serviceContext, _callback) => {
+          const { to, subject, message } = serviceContext.inputArgs;
           expect(to).to.equal(undefined);
           expect(subject).to.equal('Resolved 987654');
           expect(message).to.eql(['Your ticket 987654 was resolved.', 'Best regards,', 'support@example.com']);
           done();
         });
 
-        const task = context.getChildActivityById('sendEmail_1');
+        const task = context.getActivityById('sendEmail_1');
         task.run();
       });
 
@@ -99,9 +102,9 @@ describe('Connector', () => {
           });
           done();
         });
-        context.environment.set('ticketId', '987654');
+        context.environment.assignVariables({ticketId: '987654'});
 
-        const task = context.getChildActivityById('sendEmail_2');
+        const task = context.getActivityById('sendEmail_2');
         task.run();
       });
     });
@@ -109,12 +112,16 @@ describe('Connector', () => {
     describe('output', () => {
       it('resolves activity output from connector output', (done) => {
         context.environment.addService('ping', (c, next) => {
-          next(null, true);
+          next(null, 'true');
         });
-        const task = context.getChildActivityById('ping');
+        const task = context.getActivityById('ping');
 
-        task.once('end', (activityApi, executionContext) => {
-          expect(executionContext.getOutput()).to.eql({
+        /**
+         * CAUTION: result is string "true" but outputParameter of connector is
+         * set to fixed boolean 'true' thus the result is a boolean and not a text
+         */
+        task.once('end', (activityApi) => {
+          expect(activityApi.content.output).to.eql({
             pinged: true
           });
           done();
@@ -129,23 +136,23 @@ describe('Connector', () => {
     let definition;
     before(async () => {
       const source = factory.resource('issue-4.bpmn').toString();
-      definition = await getDefinition(source, extensions);
-      definition.environment.addService('send-email', (emailAddress, callback) => {
+      definition = await getDefinition(source, camundaExtensions);
+      definition.environment.addService('send-email', (inputContext, callback) => {
         callback(null, 'success');
       });
-      definition.environment.set('emailAddress', 'lisa@example.com');
+      definition.environment.assignVariables({emailAddress: 'lisa@example.com'});
     });
 
     it('service task has io', (done) => {
-      const task = definition.getChildActivityById('sendEmail_1');
-      expect(task.io, 'task IO').to.be.ok;
+      const task = definition.getActivityById('sendEmail_1');
+      expect(task.behaviour.io, 'task IO').to.be.ok;
       done();
     });
 
     it('executes connector-id service', (done) => {
-      const task = definition.getChildActivityById('sendEmail_1');
-      task.once('end', (activityApi, executionContext) => {
-        const output = executionContext.getOutput();
+      const task = definition.getActivityById('sendEmail_1');
+      task.once('end', (activityApi) => {
+        const { output } = activityApi.content;
         expect(output).to.eql({
           messageId: 'success',
         });
@@ -156,20 +163,23 @@ describe('Connector', () => {
     });
 
     it('executes service using defined input', (done) => {
-      const task = definition.getChildActivityById('sendEmail_1');
+      const task = definition.getActivityById('sendEmail_1');
       let input, inputArg;
 
-      definition.environment.addService('send-email', (emailAddress, callback) => {
-        inputArg = emailAddress;
+      definition.environment.addService('send-email', (inputContext, callback) => {
+        inputArg = inputContext.variables.emailAddress;
         callback(null, 'success');
       });
 
-      task.once('start', (activityApi, executionContext) => {
-        input = executionContext.getInput();
+      task.once('start', (executionContext) => {
+        expect(executionContext.id, 'sendEmail_1'); // paranoiacheck
+        expect(task.behaviour.io).to.be.ok;
+        input = task.behaviour.io.getInput();
       });
 
-      task.once('end', (activityApi, executionContext) => {
-        const output = executionContext.getOutput();
+      task.once('end', () => {
+        expect(task.behaviour.io).to.be.ok;
+        const output = task.behaviour.io.getOutput();
         expect(input).to.eql({
           emailAddress: 'lisa@example.com'
         });
@@ -184,14 +194,14 @@ describe('Connector', () => {
     });
 
     it('returns defined output', (done) => {
-      const task = definition.getChildActivityById('sendEmail_1');
+      const task = definition.getActivityById('sendEmail_1');
 
-      definition.environment.addService('send-email', (emailAddress, callback) => {
+      definition.environment.addService('send-email', (inputContext, callback) => {
         callback(null, 10);
       });
 
-      task.once('end', (activityApi, executionContext) => {
-        const output = executionContext.getOutput();
+      task.once('end', () => {
+        const output = task.behaviour.io.getOutput();
         expect(output).to.eql({
           messageId: 10,
         });
@@ -214,7 +224,7 @@ describe('Connector', () => {
                 <camunda:connectorId>get</camunda:connectorId>
               </camunda:connector>
               <camunda:inputOutput>
-                <camunda:inputParameter name="uri">\${variables.api}/v1/data</camunda:inputParameter>
+                <camunda:inputParameter name="uri">\${environment.variables.api}/v1/data</camunda:inputParameter>
                 <camunda:inputParameter name="json">\${true}</camunda:inputParameter>
                 <camunda:inputParameter name="headers">
                   <camunda:map>
@@ -243,19 +253,23 @@ describe('Connector', () => {
           data: 4
         });
 
-      getDefinition(source, extensions).then((definition) => {
-        definition.environment.addService('get', {
-          module: 'request',
-          fnName: 'get'
+      getDefinition(source, camundaExtensions).then((definition) => {
+        definition.environment.addService('get', (inputContext, callback) => {
+          const data = Object.assign({}, inputContext.variables
+            , inputContext.inputArgs[0].content.message.variables);
+          request.get(data, undefined, (err, res, body) => {
+            callback(err, [ res, body ]);
+          });
         });
         definition.environment.assignVariables({
           api: 'http://example.com'
         });
 
-        const task = definition.getChildActivityById('serviceTask');
+        const task = definition.getActivityById('serviceTask');
 
-        task.once('end', (activityApi, executionContext) => {
-          const output = executionContext.getOutput();
+        task.once('end', (executionContext) => {
+          task.behaviour.io.setResult(executionContext.content.output);
+          const output = task.behaviour.io.getOutput();
           expect(output).to.eql({
             statusCode: 200,
             body: {data: 4}
@@ -278,31 +292,33 @@ describe('Connector', () => {
                 <camunda:connectorId>myFunc</camunda:connectorId>
               </camunda:connector>
               <camunda:inputOutput>
-                <camunda:inputParameter name="variables">\${variables}</camunda:inputParameter>
-                <camunda:inputParameter name="services">\${services}</camunda:inputParameter>
-                <camunda:outputParameter name="message">\${result[0]}</camunda:outputParameter>
+                <camunda:inputParameter name="variables">\${environment.variables}</camunda:inputParameter>
+                <camunda:inputParameter name="services">\${environment.services}</camunda:inputParameter>
+                <camunda:outputParameter name="message">\${result}</camunda:outputParameter>
               </camunda:inputOutput>
             </extensionElements>
           </serviceTask>
         </process>
       </definitions>`;
 
-      getDefinition(source, extensions).then((definition) => {
-        definition.environment.addService('appendPath', (uri) => {
-          return `${uri}/v3/data`;
+      getDefinition(source, camundaExtensions).then((definition) => {
+        definition.environment.addService('appendPath', (inputContext, callback) => {
+          callback(null, `${inputContext.variables.api}/v3/data`);
         });
         definition.environment.addService('myFunc', (message, callback) => {
-          const apiWithPath = message.services.appendPath(message.variables.api);
-          callback(null, `successfully executed with ${apiWithPath}`);
+          message.parentContext.environment.services.appendPath(message, (err, data) => {
+            callback(err, `successfully executed with ${data}`);
+          });
         });
         definition.environment.assignVariables({
           api: 'http://example.com'
         });
 
-        const task = definition.getChildActivityById('serviceTask');
+        const task = definition.getActivityById('serviceTask');
 
-        task.once('end', (activityApi, executionContext) => {
-          const output = executionContext.getOutput();
+        task.once('end', (executionContext) => {
+          task.behaviour.io.setResult(executionContext.content.output);
+          const output = task.behaviour.io.getOutput();
           expect(output).to.eql({
             message: 'successfully executed with http://example.com/v3/data'
           });
@@ -319,31 +335,46 @@ describe('Connector', () => {
       let definition;
       beforeEach(async () => {
         definition = await getLoopDefinition(true);
+        let origEmit = definition.emit;
+        definition.emit = (...args) => {
+          console.log('>>> EMIT: %o', args);
+          origEmit(...args);
+        };
       });
 
       it('emits start with task id', (done) => {
-        const task = definition.getChildActivityById('task');
+        const task = definition.getActivityById('task');
         task.activate();
 
         nock('http://example.com')
           .get('/api/pal?version=0')
           .delay(50)
-          .reply(200, {})
+          .reply(200, { })
           .get('/api/franz?version=1')
           .delay(30)
-          .reply(200, {})
+          .reply(200, { })
           .get('/api/immanuel?version=2')
-          .reply(409, {});
+          .reply(409, { });
 
         const starts = [];
-        task.on('start', (activity) => {
-          starts.push(activity.id);
-        });
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          debug(eventName);
+          /** 
+           * there is a first call to execute start wuth isRootScope=true
+           * in this case the parentId = parallellLoopProcess
+           */
+          if (message.content.isRootScope) {
+            expect(message.content.parent.id).to.equal('parallellLoopProcess');
+            return;
+          }
 
-          expect(starts).to.eql(['task', 'task', 'task']);
+          expect(message.content.parent.id).to.equal('task');
+          starts.push(message.content.id);
+        }, { noAck: true, consumerTag: uniqueID(), durable: true} );
+
+        task.on('end', () => {
+          expect(starts).to.deep.equal(['task', 'task', 'task']);
           done();
         });
 
@@ -351,18 +382,20 @@ describe('Connector', () => {
       });
 
       it('emits end when completed', (done) => {
-        const task = definition.getChildActivityById('task');
+        const task = definition.getActivityById('task');
         task.activate();
 
-        task.on('start', (activityApi, executionContext) => {
-          const input = executionContext.getInput();
-          nock('http://example.com')
-            .get(`/api${input.path}?version=${input.version}`)
-            .reply(input.version < 2 ? 200 : 409, {});
-        });
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          if (message.content.isRootScope) return;
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
+          const input = message.content;
+          debug(`/api${input.item}?version=${input.index}`);
+          nock('http://example.com')
+            .get(`/api${input.item}?version=${input.index}`)
+            .reply(input.index < 2 ? 200 : 409, {});
+        }, { noAck: true, consumerTag: uniqueID(), durable: true} );
+
+        task.on('end', () => {
           done();
         });
 
@@ -370,38 +403,29 @@ describe('Connector', () => {
       });
 
       it('getOutput() returns result from loop', (done) => {
-        const task = definition.getChildActivityById('task');
+        const task = definition.getActivityById('task');
         task.activate();
 
-        task.on('start', (activityApi, executionContext) => {
-          const input = executionContext.getInput();
+        const responses = [
+          { statusCode: 200, body: { pal: 'hello I\'m Pal!' } }
+          , { statusCode: 200, body: { franz: 'this is Franz!' } }
+          , { statusCode: 409, body: { immanuel: 'Immanuel here!' } }
+        ];
+
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          if (message.content.isRootScope) return;
+
+          const input = message.content;
+          debug(`/api${input.item}?version=${input.index}`);
           nock('http://example.com')
-            .get(`/api${input.path}?version=${input.version}`)
+            .get(`/api${input.item}?version=${input.index}`)
             .delay(50 - input.version * 10)
-            .reply(input.version < 2 ? 200 : 409, {
-              idx: input.version
-            });
-        });
+            .reply(responses[input.index].statusCode, responses[input.index].body);
+        }, { noAck: true, consumerTag: uniqueID(), durable: true} );
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
-
-          expect(executionContext.getOutput().loopResult).to.eql([{
-            statusCode: 200,
-            body: {
-              idx: 0
-            }
-          }, {
-            statusCode: 200,
-            body: {
-              idx: 1
-            }
-          }, {
-            statusCode: 409,
-            body: {
-              idx: 2
-            }
-          }]);
+        task.on('end', (executionContext) => {
+          const output = executionContext.content.output;
+          expect(output).to.deep.equal(responses);
           done();
         });
 
@@ -417,9 +441,6 @@ describe('Connector', () => {
       });
 
       it('emits start with different ids', (done) => {
-        const task = definition.getChildActivityById('task');
-        task.activate();
-
         nock('http://example.com')
           .get('/api/pal?version=0')
           .delay(20)
@@ -430,14 +451,18 @@ describe('Connector', () => {
           .get('/api/immanuel?version=2')
           .reply(409, {});
 
+        const task = definition.getActivityById('task');
+        task.activate();
+
         const starts = [];
-        task.on('start', (activityApi, executionContext) => {
-          starts.push(executionContext.id);
-        });
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          if (message.content.isRootScope) return;
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
+          expect(message.content.id).to.not.be.equal(task.execution.getApi().executionId);
+          starts.push(message.content.executionId);
+        }, { noAck: true, consumerTag: uniqueID(), durable: true} );
 
+        task.on('end', () => {
           expect(starts.includes(task.id), 'unique task id').to.not.be.ok;
           done();
         });
@@ -446,77 +471,58 @@ describe('Connector', () => {
       });
 
       it('returns output in sequence', (done) => {
-        const task = definition.getChildActivityById('task');
-        task.activate();
+        const task = definition.getActivityById('task');
 
-        task.on('start', (activityApi, executionContext) => {
-          const input = executionContext.getInput();
+        const responses = [
+          { statusCode: 200, body: { pal: 'hello I\'m Pal!' } }
+          , { statusCode: 200, body: { franz: 'this is Franz!' } }
+          , { statusCode: 409, body: { immanuel: 'Immanuel here!' } }
+        ];
+
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          if (message.content.isRootScope) return;
+          const input = message.content;
+          const uri = `/api${input.item}?version=${input.index}`;
+          debug('>>>> EXECUTE.START: %o response(%o): %o', uri, responses[input.index].statusCode, responses[input.index].body);
           nock('http://example.com')
-            .get(`/api${input.path}?version=${input.version}`)
-            .delay(50 - input.version * 10)
-            .reply(input.version < 2 ? 200 : 409, {
-              idx: input.version
-            });
-        });
+            .get(uri)
+            .delay(500 - input.index * 10)
+            .reply(responses[input.index].statusCode, responses[input.index].body);
+        }, { noAck: true, consumerTag: uniqueID(), durable: true, priority: 1} );
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
+        task.on('end', (executionContext) => {
+          const output = executionContext.content.output;
+          debug(executionContext.content.output);
+          expect(output).to.deep.equal(responses);
 
-          expect(executionContext.getOutput().loopResult).to.eql([{
-            statusCode: 200,
-            body: {
-              idx: 0
-            }
-          }, {
-            statusCode: 200,
-            body: {
-              idx: 1
-            }
-          }, {
-            statusCode: 409,
-            body: {
-              idx: 2
-            }
-          }]);
           done();
         });
 
+        task.activate();
         task.run();
       });
 
       it('getOutput() returns result from loop', (done) => {
-        const task = definition.getChildActivityById('task');
+        const task = definition.getActivityById('task');
         task.activate();
 
-        task.on('start', (activityApi, executionContext) => {
-          const input = executionContext.getInput();
+        const responses = [
+          { statusCode: 200, body: { pal: 'hello I\'m Pal!' } }
+          , { statusCode: 200, body: { franz: 'this is Franz!' } }
+          , { statusCode: 409, body: { immanuel: 'Immanuel here!' } }
+        ];
+        task.broker.subscribe('execution', 'execute.start', null, (eventName, message) => {
+          if (message.content.isRootScope) return;
+          const input = message.content;
           nock('http://example.com')
-            .get(`/api${input.path}?version=${input.version}`)
+            .get(`/api${input.item}?version=${input.index}`)
             .delay(50 - input.version * 10)
-            .reply(input.version < 2 ? 200 : 409, {
-              idx: input.version
-            });
-        });
+            .reply(responses[input.index].statusCode, responses[input.index].body);
+        }, { noAck: true, consumerTag: uniqueID(), durable: true} );
 
-        task.on('end', (activityApi, executionContext) => {
-          if (executionContext.isLoopContext) return;
-
-          expect(executionContext.getOutput().loopResult).to.eql([{
-            statusCode: 200,
-            body: {
-              idx: 0
-            }
-          }, {
-            statusCode: 200,
-            body: {
-              idx: 1
-            }
-          }, {
-            statusCode: 409,
-            body: {
-              idx: 2
-            }
-          }]);
+        task.on('end', (executionContext) => {
+          // TODO: what getOutput ??
+          // add result to task.. so far task does not have output
           done();
         });
 
@@ -527,21 +533,21 @@ describe('Connector', () => {
 
 });
 
-async function getLoopDefinition(isSequential) {
+async function getLoopDefinition(isSequential, listener) {
   const source = `
   <?xml version="1.0" encoding="UTF-8"?>
   <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
     <process id="parallellLoopProcess" isExecutable="true">
       <serviceTask id="task">
-        <multiInstanceLoopCharacteristics isSequential="${isSequential}" camunda:collection="\${variables.paths}">
+        <multiInstanceLoopCharacteristics isSequential="${isSequential}" camunda:collection="\${environment.variables.paths}">
           <loopCardinality>5</loopCardinality>
         </multiInstanceLoopCharacteristics>
         <extensionElements>
           <camunda:inputOutput>
             <camunda:inputParameter name="version">\${index}</camunda:inputParameter>
             <camunda:inputParameter name="path">\${item}</camunda:inputParameter>
-            <camunda:outputParameter name="loopResult">\${result}</camunda:outputParameter>
+            <camunda:outputParameter name="loopResult">\${body}</camunda:outputParameter>
           </camunda:inputOutput>
           <camunda:connector>
             <camunda:inputOutput>
@@ -552,7 +558,7 @@ async function getLoopDefinition(isSequential) {
                 </camunda:map>
               </camunda:inputParameter>
               <camunda:outputParameter name="statusCode">\${result[0].statusCode}</camunda:outputParameter>
-              <camunda:outputParameter name="body" />
+              <camunda:outputParameter name="body">\${result[1]}</camunda:outputParameter>
             </camunda:inputOutput>
             <camunda:connectorId>get</camunda:connectorId>
           </camunda:connector>
@@ -560,12 +566,21 @@ async function getLoopDefinition(isSequential) {
       </serviceTask>
     </process>
   </definitions>`;
-  const definition = await getDefinition(source, extensions);
+  const definition = await getDefinition(source, camundaExtensions, listener);
 
   definition.environment.assignVariables({
     paths: ['/pal', '/franz', '/immanuel']
   });
-  definition.environment.addService('get', request.get);
+  definition.environment.addService('get', (inputContext, callback) => {
+    const data = Object.assign({}, inputContext.variables
+      , inputContext.loopArgs
+      , inputContext.inputArgs);
+    debug(`calling(idx:${data.index},item:${data.item}) ${data.reqOptions.uri}`);
+    request.get(data.reqOptions, undefined, (err, res, body) => {
+      debug(`(${inputContext.message.content.executionId}) reponse(idx:${data.index},item:${data.item}) ${data.reqOptions.uri}: ${res.statusCode}`);
+      callback(err, [ res, body ]);
+    });
+  });
 
   return definition;
 }

@@ -2,9 +2,7 @@
 
 const camundaExtensions = require('../../../resources/camunda');
 const {EventEmitter} = require('events');
-const {getDefinition} = require('../../helpers/testHelpers');
-const debug = require('debug');
-debug.enable('*');
+const {getDefinition, debug} = require('../../helpers/testHelpers');
 
 describe('Result variable', () => {
   let definition;
@@ -35,7 +33,7 @@ describe('Result variable', () => {
 //      expect(activityApi.getOutput()).to.eql([1, 'success']);
     });
 
-    definition.on('end', (...args) => {
+    definition.on('end', () => {
       const outputValues = task.behaviour.io.getOutput();
       expect(outputValues).to.eql({taskOutput: [1, 'success']});
       done();

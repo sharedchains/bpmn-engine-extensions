@@ -2,17 +2,16 @@
 
 const { expect } = require('chai');
 
+const EventEmitter2 = require('eventemitter2');
 const factory = require('../../helpers/factory');
 const nock = require('nock');
 const testHelpers = require('../../helpers/testHelpers');
 const {EventEmitter} = require('events');
 const camundaExtensions = require('../../../resources/camunda');
 const {Engine} = require('bpmn-engine');
-const Debug = require('debug');
-const exp = require('constants');
-const debug = Debug('test');
+const request = require('request');
 
-const {getEngineAndDefinition} = testHelpers;
+const {getDefinition, debug} = testHelpers;
 
 describe('Camunda extension', () => {
   describe('behavior', () => {
@@ -87,12 +86,12 @@ describe('Camunda extension', () => {
     </definitions>`;
 
     let definition;
-    let engine;
     let listener;
     beforeEach(async () => {
-      const res = await getEngineAndDefinition(source, camundaExtensions, listener);
-      definition = res.definition;
-      engine = res.engine;
+      listener = new EventEmitter2({
+        wildcard: true
+      });
+      definition = await getDefinition(source, camundaExtensions, listener);
       definition.environment.assignVariables({input: 1, static: 2, surnameLabel: 'Surname?' });
     });
 
@@ -118,7 +117,6 @@ describe('Camunda extension', () => {
         const activity = definition.getActivityById('task-form-only');
 
         activity.on('wait', (activityApi) => {
-          const api = activity.getApi(activityApi);
           const form = activity.behaviour.io.getForm(activityApi.content);
           expect(form).to.be.ok;
           expect(form.getFields()).to.have.length(1);
@@ -364,7 +362,7 @@ describe('Camunda extension', () => {
     let definition;
     let listener;
     beforeEach(async () => {
-      listener = new EventEmitter();
+      listener = new EventEmitter({ wildcard: true });
       definition = await testHelpers.getDefinition(source, camundaExtensions, listener);
     });
 
@@ -547,52 +545,59 @@ describe('Camunda extension', () => {
   describe('issue-19 - on error', () => {
     let services;
     const source = factory.resource('issue-19-2.bpmn');
-    before((done) => {
-      testHelpers.statusCodeOk = (statusCode) => {
+    before((doneBefore) => {
+      const statusCodeOk = (statusCode) => {
+        debug('************************* STATUSOK');
         return statusCode === 200;
       };
-      testHelpers.extractErrorCode = (errorMessage) => {
+      const extractErrorCode = (errorMessage) => {
+        debug('************************* EXTRACT');
         if (!errorMessage) return;
         const codeMatch = errorMessage.match(/^([A-Z_]+):.+/);
         if (codeMatch) return codeMatch[1];
       };
 
       services = {
-        get: {
-          module: 'request',
-          fnName: 'get'
+        get: (...args) => {
+          debug('> service get args: %o', args);
+          return request.get(...args);
         },
-        statusCodeOk: {
-          module: require.resolve('../../helpers/testHelpers'),
-          fnName: 'statusCodeOk'
-        },
-        extractErrorCode: {
-          module: require.resolve('../../helpers/testHelpers'),
-          fnName: 'extractErrorCode'
-        }
+        statusCodeOk,
+        extractErrorCode
       };
 
-      done();
+      debug('************************* CODE19');
+      doneBefore();
     });
 
-    it('completes when returning to request after resume', (done) => {
-      testHelpers.statusCodeOk = (statusCode) => {
-        return statusCode === 200;
-      };
-
+    it('completes when returning to request after resume', async (done) => {
       let state;
-      const engine = Engine({
-        source,
-        extensions
-      });
+      const listener = new EventEmitter2({ wildcard: true });
 
-      listener.on('start', () => {
+      listener.prependAny((eventName, eventValue) => {
+        debug(' *************************** listener received: %o - %o', eventName, eventValue);
+        /*
+        if (eventApi.name === 'Errored') {
+          fail('Error: ' + eventApi.name);
+        }
+        state = engine.getState();
+        */
+      });
+      listener.on('process.start', (...args) => {
+        debug(' *************************** listener received: %o - %o', args);
         state = engine.getState();
       });
 
       listener.once('wait-waitForSignalTask', () => {
         state = engine.getState();
         engine.stop();
+      });
+
+      const engine = Engine({
+        name: 'test-completes',
+        source,
+        extensions: { camunda: camundaExtensions.extension },
+        moddleOptions: { camunda: camundaExtensions.moddleOptions }
       });
 
       engine.once('end', () => {
@@ -608,7 +613,8 @@ describe('Camunda extension', () => {
           });
 
         const engine2 = Engine.resume(state, {
-          extensions,
+          extensions: { camunda: camundaExtensions.extension },
+          moddleOptions: { camunda: camundaExtensions.moddleOptions },
           listener: listener2
         });
         engine2.once('end', (execution) => {
@@ -627,7 +633,7 @@ describe('Camunda extension', () => {
         .get('/api')
         .reply(502);
 
-      engine.execute({
+      const execution = await engine.execute({
         listener,
         services,
         variables: {
@@ -635,14 +641,15 @@ describe('Camunda extension', () => {
           timeout: 'PT0.1S'
         }
       });
-
+      debug(execution);
     });
 
     it('caught error is saved to variables', (done) => {
       let state;
       const engine = Engine({
         source,
-        extensions
+        extensions: { camunda: camundaExtensions.extension },
+        moddleOptions: { camunda: camundaExtensions.moddleOptions },
       });
       const listener = new EventEmitter();
 
@@ -668,7 +675,8 @@ describe('Camunda extension', () => {
           });
 
         const engine2 = Engine.resume(state, {
-          extensions,
+          extensions: { camunda: camundaExtensions.extension },
+          moddleOptions: { camunda: camundaExtensions.moddleOptions },
           listener: listener2
         });
         engine2.once('end', (execution2, definitionExecution) => {
@@ -705,7 +713,8 @@ describe('Camunda extension', () => {
       let state;
       const engine = Engine({
         source,
-        extensions
+        extensions: { camunda: camundaExtensions.extension },
+        moddleOptions: { camunda: camundaExtensions.moddleOptions },
       });
       const listener = new EventEmitter();
 
@@ -729,7 +738,8 @@ describe('Camunda extension', () => {
           .replyWithError(new Error('RETRY_FAIL: Error message'));
 
         const engine2 = Engine.resume(state, {
-          extensions,
+          extensions: { camunda: camundaExtensions.extension },
+          moddleOptions: { camunda: camundaExtensions.moddleOptions },
           listener: listener2
         });
         engine2.once('end', (execution, definitionExecution) => {
@@ -795,7 +805,8 @@ describe('Camunda extension', () => {
 
       const engine = new Engine({
         source,
-        extensions
+        extensions: { camunda: camundaExtensions.extension },
+        moddleOptions: { camunda: camundaExtensions.moddleOptions },
       });
       engine.once('end', (execution, definitionExecution) => {
         expect(definitionExecution.getChildState('end').taken).to.be.true;
@@ -821,7 +832,7 @@ describe('Camunda extension', () => {
     let definition;
     before(async () => {
       const source = factory.resource('service-task-io-types.bpmn').toString();
-      definition = await getDefinition(source, extensions);
+      definition = await getDefinition(source, camundaExtensions);
     });
 
     it('getInput() without defined io returns undefined', (done) => {

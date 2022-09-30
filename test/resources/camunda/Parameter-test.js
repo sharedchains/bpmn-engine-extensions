@@ -24,10 +24,10 @@ describe('Parameter', () => {
             value: '${listing}'
           }]
         }
-      }, {
+      }, { expressions: {
         resolveExpression: function(expr) {
           if (expr === '${listing}') return 1;
-        }
+        }}
       });
 
       expect(parm.activate({
@@ -64,10 +64,10 @@ describe('Parameter', () => {
             value: '${listing}'
           }]
         }
-      }, {
+      }, { expressions: {
         resolveExpression: function(expr) {
           if (expr === '${listing}') return 1;
-        }
+        }}
       });
 
       expect(parm.activate({listing: 1}).get()).to.eql({value: 1});
@@ -82,7 +82,9 @@ describe('Parameter', () => {
         definition: {
           $type: 'camunda:map'
         }
-      }, {});
+      }, { expressions: { resolveExpression: () => {
+        return null;
+      }}});
 
       expect(parm.activate({listing: 1}).get()).to.equal(1);
 

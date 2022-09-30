@@ -1,10 +1,7 @@
 'use strict';
 
-const debug = require('debug');
 const camundaExtensions = require('../../../../resources/camunda');
-const {getDefinition} = require('../../../helpers/testHelpers');
-
-debug.enable('*');
+const {getDefinition, debug} = require('../../../helpers/testHelpers');
 
 describe('ScriptTask', () => {
   describe('io', () => {

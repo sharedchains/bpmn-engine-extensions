@@ -3,10 +3,10 @@
 const InputOutput = require('../../../resources/camunda/InputOutput');
 const camundaExtensions = require('../../../resources/camunda');
 const {Engine} = require('bpmn-engine');
-const {getDefinition} = require('../../helpers/testHelpers');
-const debug = require('debug');
+const {getDefinition, getEngine, debug} = require('../../helpers/testHelpers');
 const { expect } = require('chai');
-debug.enable('*');
+
+const parentApi = { id: 'test' };
 
 describe('Activity InputOutput', () => {
   const engine = new Engine({
@@ -33,7 +33,7 @@ describe('Activity InputOutput', () => {
           }]
         }, {
           environment: engine.environment
-        }).activate();
+        }).activate(parentApi);
       }
 
       expect(test).to.throw(Error, /CoffeeScript is unsupported/i);
@@ -49,7 +49,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      const activatedIo = io.activate({}, {});
+      const activatedIo = io.activate(parentApi, {});
       expect(activatedIo.getInput()).to.eql({});
       expect(activatedIo.getOutput()).to.eql({});
 
@@ -79,7 +79,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      const activatedIo = io.activate({}, {});
+      const activatedIo = io.activate(parentApi, {});
       const inputs = activatedIo.getInput();
       expect(inputs).to.eql({
         taskinput: 'Empty'
@@ -107,7 +107,7 @@ describe('Activity InputOutput', () => {
       }, {
         environment: engine.environment
       });
-      const activatedIo = io.activate({}, {});
+      const activatedIo = io.activate(parentApi, {});
       const inputs = activatedIo.getInput();
       expect(inputs).to.eql({
         message: 'Empty'
@@ -124,7 +124,7 @@ describe('Activity InputOutput', () => {
           definition: {
             $type: 'camunda:script',
             scriptFormat: 'JavaScript',
-            value: '`Me too ${environment.variables.arbval}`;'
+            value: '`Me too ${arbval}`;'
           }
         }],
         outputParameters: [{
@@ -136,7 +136,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      const activatedIo = io.activate();
+      const activatedIo = io.activate(parentApi);
       const inputs = activatedIo.getInput();
       expect(inputs).to.eql({
         message: 'Me too 37'
@@ -153,7 +153,7 @@ describe('Activity InputOutput', () => {
             <extensionElements>
               <camunda:InputOutput>
                 <camunda:inputParameter name="inputMessage">
-                  <camunda:script scriptFormat="JavaScript">environment.variables.input</camunda:script>
+                  <camunda:script scriptFormat="JavaScript">input</camunda:script>
                 </camunda:inputParameter>
                 <camunda:outputParameter name="message">
                   <camunda:script scriptFormat="JavaScript"><![CDATA[inputMessage + environment.variables.arbval]]>;</camunda:script>
@@ -210,7 +210,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      expect(io.activate({}, {}).getOutput()).to.eql({
+      expect(io.activate(parentApi, {}).getOutput()).to.eql({
         message: 'I\'m done',
         arbval: '1'
       });
@@ -236,7 +236,7 @@ describe('Activity InputOutput', () => {
       }, {
         environment: engine.environment
       });
-      expect(io.activate({}, {}).getOutput()).to.eql({
+      expect(io.activate(parentApi, {}).getOutput()).to.eql({
         message: 'Me too',
         arbval: '1'
       });
@@ -252,7 +252,7 @@ describe('Activity InputOutput', () => {
           definition: {
             $type: 'camunda:script',
             scriptFormat: 'JavaScript',
-            value: '`Me too ${variables.arbval}`;'
+            value: '`I am ${arbval}`;'
           }
         }, {
           $type: 'camunda:outputParameter',
@@ -262,12 +262,12 @@ describe('Activity InputOutput', () => {
       }, {
         environment: engine.environment
       });
-      expect(io.activate({}, {
+      expect(io.activate(parentApi, {
         variables: {
-          arbval: 10
+          arbval: 'the random value 4'
         }
       }).getOutput()).to.eql({
-        message: 'Me too 10',
+        message: 'I am the random value 4',
         arbval: '1'
       });
       done();
@@ -285,7 +285,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      expect(io.activate({}, {
+      expect(io.activate(parentApi, {
       }).getOutput()).to.eql({});
 
       done();
@@ -302,7 +302,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      expect(io.activate({}, {}).getOutput()).to.eql({});
+      expect(io.activate(parentApi, {}).getOutput()).to.eql({});
 
       done();
     });
@@ -323,7 +323,7 @@ describe('Activity InputOutput', () => {
         environment: engine.environment
       });
 
-      expect(io.activate({}, {
+      expect(io.activate(parentApi, {
         variables: {
           arbval: 10
         }
@@ -376,7 +376,7 @@ describe('Activity InputOutput', () => {
               <camunda:inputParameter name="templateId">template_1234</camunda:inputParameter>
               <camunda:inputParameter name="templateArgs">
                 <camunda:map>
-                  <camunda:entry key="url"><![CDATA[\${services.getUrl('task1')}]]></camunda:entry>
+                  <camunda:entry key="url"><![CDATA[\${environment.services.getUrl('task1')}]]></camunda:entry>
                 </camunda:map>
               </camunda:inputParameter>
               <camunda:outputParameter name="serviceResult">\${result}</camunda:outputParameter>
@@ -385,12 +385,7 @@ describe('Activity InputOutput', () => {
         </serviceTask>
       </process>
     </definitions>`;
-    const localEngine = new Engine({
-      source: source,
-      extensions: { camunda: camundaExtensions.extension },
-      moddleOptions: { camunda: camundaExtensions.moddleOptions }
-    });
-
+    const localEngine = getEngine(source);
     localEngine.execute({
       services: {
         dummy: (_, serviceCallback) => {

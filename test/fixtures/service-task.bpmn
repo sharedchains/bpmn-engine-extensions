@@ -9,7 +9,7 @@
       <bpmn:incoming>flow2</bpmn:incoming>
     </bpmn:endEvent>
     <bpmn:sequenceFlow id="flow2" sourceRef="serviceTask" targetRef="end" />
-    <bpmn:serviceTask id="serviceTask" name="Post message" camunda:expression="${services.postMessage}">
+    <bpmn:serviceTask id="serviceTask" name="Post message" camunda:expression="${environment.services.postMessage}">
       <bpmn:incoming>flow1</bpmn:incoming>
       <bpmn:outgoing>flow2</bpmn:outgoing>
     </bpmn:serviceTask>

@@ -1,14 +1,9 @@
 'use strict';
 
-const camundaExtensions = require('../../../resources/camunda');
 const factory = require('../../helpers/factory');
-const {getDefinition} = require('../../helpers/testHelpers');
-const {Engine} = require('bpmn-engine');
-const {EventEmitter} = require('events');
-
-const extensions = {
-  camunda: camundaExtensions
-};
+const {getDefinition,getEngine,debug} = require('../../helpers/testHelpers');
+const EventEmitter2 = require('eventemitter2');
+const { uniqueID } = require('mocha/lib/utils');
 
 describe('Camunda Forms', () => {
   describe('behaviour', () => {
@@ -25,17 +20,17 @@ describe('Camunda Forms', () => {
         <userTask id="task">
           <extensionElements>
             <camunda:formData>
-              <camunda:formField id="input" label="\${variables.label}" defaultValue="\${input}" />
+              <camunda:formField id="input" label="\${environment.variables.label}" defaultValue="\${variables.input}" />
             </camunda:formData>
             <camunda:InputOutput>
-              <camunda:inputParameter name="input">\${variables.input}</camunda:inputParameter>
+              <camunda:inputParameter name="input">\${environment.variables.input}</camunda:inputParameter>
             </camunda:InputOutput>
           </extensionElements>
         </userTask>
         <userTask id="task2">
           <extensionElements>
             <camunda:formData>
-              <camunda:formField id="input" label="\${variables.label}" />
+              <camunda:formField id="input" label="\${environment.variables.label}" />
             </camunda:formData>
           </extensionElements>
         </userTask>
@@ -44,17 +39,16 @@ describe('Camunda Forms', () => {
 
     let definition;
     beforeEach(async () => {
-      definition = await getDefinition(source, extensions);
+      definition = await getDefinition(source);
     });
 
     it('has access to variables and activity input when assigning label and default value', (done) => {
-      definition.environment.set('input', 1);
-      definition.environment.set('label', 'field label');
+      definition.environment.assignVariables({ input: 1, label: 'field label' });
 
-      const activity = definition.getChildActivityById('task');
+      const activity = definition.getActivityById('task');
 
-      activity.on('enter', (activityApi, activityExecution) => {
-        const form = activityExecution.getForm();
+      activity.on('enter', () => {
+        const form = activity.behaviour.io.getForm();
         const field = form.getField('input');
 
         expect(field.label, 'label').to.equal('field label');
@@ -62,84 +56,83 @@ describe('Camunda Forms', () => {
         done();
       });
 
-      activity.activate().run();
+      activity.activate();
+      activity.run();
     });
 
     it('assigned field value is returned in form output', (done) => {
-      definition.environment.set('input', -1);
-      definition.environment.set('label', 'field label');
+      definition.environment.assignVariables({ input: -11, label: 'field label' });
 
-      const activity = definition.getChildActivityById('task');
+      const activity = definition.getActivityById('task');
 
-      activity.on('wait', (activityApi, executionContext) => {
-        const api = activityApi.getApi(executionContext);
-        const fields = api.form.getFields();
+      activity.on('activity.wait', (activityApi) => {
+        const fields = activity.behaviour.io.getForm().getFields();
         fields.forEach(({set}, idx) => set(idx * 10));
-        api.signal();
+        activityApi.signal();
       });
 
-      activity.on('end', (activityApi, executionContext) => {
-        const api = activityApi.getApi(executionContext);
-        expect(api.form.getOutput()).to.eql({
+      activity.on('end', () => {
+        expect(activity.behaviour.io.getForm().getOutput()).to.eql({
           input: 0
         });
         done();
       });
 
-      activity.activate().run();
+      activity.activate();
+      activity.run();
     });
 
     it('without fields ignores form', (done) => {
-      const activity = definition.getChildActivityById('start');
-      expect(activity.form).to.equal(undefined);
-      activity.on('enter', (activityApi, executionContext) => {
-        const activeForm = executionContext.getForm();
-        expect(activeForm).to.equal(undefined);
+      const activity = definition.getActivityById('start');
+      expect(activity.behaviour.io).to.equal(undefined);
+      activity.on('enter', () => {
+        expect(activity.behaviour.io).to.equal(undefined);
         done();
       });
-      activity.activate().run();
+      activity.activate();
+      activity.run();
     });
 
     it('setFieldValue() of unknown field is ignored', (done) => {
-      definition.environment.set('input', 1);
+      definition.environment.assignVariables({ input: 1});
 
-      const activity = definition.getChildActivityById('task');
+      const activity = definition.getActivityById('task');
 
-      activity.on('enter', (activityApi, executionContext) => {
-        const activeForm = executionContext.getForm();
+      activity.on('enter', () => {
+        const activeForm = activity.behaviour.io.getForm();
         activeForm.setFieldValue('arb', 2);
         expect(activeForm.getOutput()).to.eql({input: 1});
         done();
       });
 
-      activity.activate().run();
+      activity.activate();
+      activity.run();
     });
 
     it('reset() resets fields to default value', (done) => {
-      definition.environment.set('input', 1);
+      definition.environment.assignVariables({ input: 1});
 
-      const activity = definition.getChildActivityById('task');
+      const activity = definition.getActivityById('task');
 
-      activity.on('enter', (activityApi, executionContext) => {
-        const activeForm = executionContext.getForm();
+      activity.on('enter', () => {
+        const activeForm = activity.behaviour.io.getForm();
         activeForm.setFieldValue('input', 2);
       });
 
-      activity.on('wait', (activityApi, executionContext) => {
-        const api = activityApi.getApi(executionContext);
-        api.form.reset();
-        api.signal();
+      activity.on('wait', (activityApi) => {
+        activity.behaviour.io.getForm().reset();
+        activityApi.signal();
       });
 
-      activity.on('end', (activityApi, executionContext) => {
-        const api = activityApi.getApi(executionContext);
-        expect(api.form.getOutput()).to.eql({
+      activity.on('end', () => {
+        expect(activity.behaviour.io.getForm().getOutput()).to.eql({
           input: 1
         });
         done();
       });
 
-      activity.activate().run();
+      activity.activate();
+      activity.run();
     });
 
   });
@@ -154,30 +147,29 @@ describe('Camunda Forms', () => {
           <startEvent id="start">
             <extensionElements>
               <camunda:formData>
-                <camunda:formField id="inputDate" label="Input date" type="date" defaultValue="\${variables.now}" />
+                <camunda:formField id="inputDate" label="Input date" type="date" defaultValue="\${environment.variables.now}" />
               </camunda:formData>
             </extensionElements>
+            <outgoing>flow1</outgoing>
           </startEvent>
           <endEvent id="end" />
           <sequenceFlow id="flow1" sourceRef="start" targetRef="end" />
         </process>
       </definitions>`;
 
-      const listener = new EventEmitter();
+      const engine = getEngine(source);
       const now = new Date('2017-02-05');
 
-      listener.once('wait-start', (activityApi) => {
-        expect(activityApi.form.getFields()[0]).to.have.property('defaultValue', now);
+      engine.broker.subscribe('event', 'activity.start', null, (event, message) => {
+        if (message.content.id !== 'start') return;
+        debug('> event: %o/%o', event, message.content.id);
+        const task = engine.execution.getActivityById('start');
+        const fields = task.behaviour.io.getForm().getFields();
+        expect(fields[0]).to.have.property('defaultValue', now);
         done();
-      });
-
-      const engine = Engine({
-        source,
-        extensions
-      });
+      }, { noAck: true, consumerTag: uniqueID(), durable: true});
 
       engine.execute({
-        listener,
         variables: {
           now
         }
@@ -187,27 +179,44 @@ describe('Camunda Forms', () => {
 
   describe('start form', () => {
     it('waits for start', (done) => {
-      const engine = new Engine({
-        source: factory.resource('forms.bpmn'),
-        extensions
-      });
+      const engine = getEngine(factory.resource('forms.bpmn'));
 
-      const now = new Date('2017-02-05');
-      const tomorrow = new Date('2017-02-06');
-      const dayAfterTomorrow = new Date('2017-02-07');
-      const listener = new EventEmitter();
+        const now = new Date('2017-02-05');
+        const tomorrow = new Date('2017-02-06');
+        const dayAfterTomorrow = new Date('2017-02-07');
+      engine.getDefinitions().then(definitions => {
+        const definition = definitions[0];
 
-      listener.once('wait-start', (activityApi) => {
-        const fields = activityApi.form.getFields();
 
-        expect(fields[0]).to.include({
-          defaultValue: now
+        engine .broker.subscribe('event', 'activity.wait', null, (event, message) => {
+          debug(message);
+          const userTask = definition.getActivityById('userTask');
+          debug(userTask.behaviour.io);
+          debug(userTask);
+          const fields = userTask.behaviour.io.getForm().getFields();
+
+          expect(fields[0]).to.include({
+            defaultValue: tomorrow
+          });
+
+          const reply = {};
+          reply[fields[0].id] = dayAfterTomorrow;
+
+          userTask.getApi().signal(reply);
+          return context;
         });
+          /*
+          const fields = startTask.behaviour.io.getForm().getFields();
 
-        fields[0].set(tomorrow);
+          expect(fields[0]).to.include({
+            defaultValue: now
+          });
 
-        activityApi.signal();
-      });
+          fields[0].set(tomorrow);
+          debug('STEP 1');
+        // NO WAIT, nothing to signal on StartEvent
+        //activityApi.signal();
+        });
 
       listener.once('wait-userTask', (activityApi) => {
         const fields = activityApi.form.getFields();
@@ -221,21 +230,25 @@ describe('Camunda Forms', () => {
 
         activityApi.signal(reply);
       });
+        engine.once('end', (exe) => fnHandler((_exe) => {
+          debug('QUI');
+          let output = _exe.getOutput();
+          expect(output).to.include({
+            startDate: dayAfterTomorrow
+          });
+          done();
+        }, exe)
+        );
+      */
 
       engine.execute({
-        listener,
-        variables: {
-          now
-        }
-      });
+          variables: {
+            now
+          }
+        }).then(() => { debug('FINE'); done() });
 
-      engine.once('end', (execution) => {
-        expect(execution.getOutput()).to.include({
-          startDate: dayAfterTomorrow
-        });
-        done();
-      });
     });
+  });
   });
 
   describe('getState()', () => {
@@ -267,12 +280,9 @@ describe('Camunda Forms', () => {
     </definitions>`;
 
     it('returns state of form fields', (done) => {
-      const engine = new Engine({
-        source,
-        extensions
-      });
+      const engine = getEngine(source);
 
-      const listener = new EventEmitter();
+      const listener = new EventEmitter2();
       listener.once('wait-start', (activityApi) => {
         engine.stop();
         const state = activityApi.getState().io.form;
@@ -324,12 +334,9 @@ describe('Camunda Forms', () => {
     </definitions>`;
 
     it('resumes start event with assigned values', (done) => {
-      const engine = new Engine({
-        source,
-        extensions
-      });
+      const engine = getEngine(source);
 
-      let listener = new EventEmitter();
+      let listener = new EventEmitter2();
       listener.once('wait-start', (activityApi) => {
         expect(activityApi.form.setFieldValue('formfield1', 'stop')).to.equal(true);
         engine.stop();
@@ -341,7 +348,7 @@ describe('Camunda Forms', () => {
 
       engine.on('end', () => {
         const state = engine.getState();
-        listener = new EventEmitter();
+        listener = new EventEmitter2();
         listener.on('wait-start', ({form}) => {
           const field = form.getField('formfield1');
           expect(field.get()).to.equal('stop');
@@ -353,12 +360,9 @@ describe('Camunda Forms', () => {
     });
 
     it('resumes with assigned values', (done) => {
-      const engine = Engine({
-        source,
-        extensions
-      });
+      const engine = getEngine(source);
 
-      let listener = new EventEmitter();
+      let listener = new EventEmitter2();
       listener.once('wait-start', (activityApi) => {
         expect(activityApi.form.setFieldValue('formfield1', 'stop2')).to.equal(true);
         engine.stop();
@@ -370,7 +374,7 @@ describe('Camunda Forms', () => {
 
       engine.on('end', () => {
         const state = engine.getState();
-        listener = new EventEmitter();
+        listener = new EventEmitter2();
 
         listener.on('wait-start', ({form, signal}) => {
           const field1 = form.getField('formfield1');
@@ -392,7 +396,7 @@ describe('Camunda Forms', () => {
     });
 
     it('resume fields ignores fields not in field set', (done) => {
-      getDefinition(source, extensions).then((definition) => {
+      getDefinition(source).then((definition) => {
         const activity = definition.getChildActivityById('task');
         let state;
         activity.once('wait', (activityApi, executionContext) => {

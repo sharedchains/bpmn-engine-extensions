@@ -1,31 +1,40 @@
 'use strict';
 
+const camunda = require('../../resources/camunda');
 const {Engine} = require('bpmn-engine');
+const Debug = require('debug');
+const { assert } = require('chai');
+Debug.enable('-nock*,bpmn*,test*');
+const debug = Debug('test');
 
 module.exports = {
   getDefinition,
-  getEngineAndDefinition,
-  onceEvent
+  getEngine,
+  onceEvent,
+  debug,
+  fnHandler
 };
 
-async function getEngineAndDefinition(source, camundaExtensions, listener = null) {
-  const engine = Engine({
-    source,
-    extensions: { camunda: camundaExtensions.extension },
-    moddleOptions: { camunda: camundaExtensions.moddleOptions },
-    listener: listener
-  });
-
-  const x = await engine.getDefinitions();
-  return new Promise((resolve) => {
-    resolve({ definition: x[0], engine });
-  });
+function fnHandler(fn, ...args) {
+  try {
+    return fn(...args);
+  } catch (ex) {
+    assert.fail(ex.getMessage);
+  }
 }
+function getEngine(source, ext = null) {
+  const _ext = ext || camunda;
+  return Engine(Object.assign({},
+    { name: 'test-engine' },
+    { source },
+    ( _ext && _ext.extension ? { extensions: { camunda: _ext.extension }} : {} ),
+    ( _ext && _ext.moddleOptions ? { moddleOptions: { camunda: _ext.moddleOptions } } : {})
+  ));
+}
+async function getDefinition(source, ext = null) {
 
-async function getDefinition(source, camundaExtensions, listener = null) {
-  return getEngineAndDefinition(source, camundaExtensions, listener).then(data => {
-    return data.definition;
-  });
+  const definitions = await getEngine(source, ext).getDefinitions();
+  return definitions[0];
 }
 
 

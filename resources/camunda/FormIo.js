@@ -27,7 +27,7 @@ module.exports = function FormIo(form, {environment}) {
     const {id: activityId} = parentApi;
     const {loop, index} = inputContext;
 
-    debug(`<${activityId}>${loop ? ` loop context iteration ${index}` : ''} activated`);
+    debug(`FormIo<${activityId}>${loop ? ` loop context iteration ${index}` : ''} activated`);
 
     return {
       id,

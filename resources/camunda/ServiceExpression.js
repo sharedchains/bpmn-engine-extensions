@@ -13,6 +13,7 @@ module.exports = function SereviceExpression(activityElement, parentContext) {
     type,
     expression,
     activate,
+    execute,
   };
 
   function activate(parentApi, inputContext) {
@@ -25,14 +26,14 @@ module.exports = function SereviceExpression(activityElement, parentContext) {
       type,
       execute
     };
-
-    function execute(inputArg, callback) {
+  }
+  function execute(inputArg, callback) {
+      const serviceFn = environment.expressions.resolveExpression(expression, parentContext);
       if (typeof serviceFn !== 'function') return callback(new Error(`Expression ${expression} did not resolve to a function`));
 
-      const inputArgs = Object.assign({}, { variables: environment.variables } );
+      const inputArgs = Object.assign({}, inputArg.content, { variables: environment.variables } );
       serviceFn.call(parentApi, inputArgs, (err, ...args) => {
         callback(err, args);
       });
     }
-  }
 };

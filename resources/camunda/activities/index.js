@@ -16,7 +16,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   switch ($type) {
     case 'bpmn:ServiceTask': return ServiceTask(extensions, activityElement, parentContext);
     case 'bpmn:ScriptTask': return ScriptTask(extensions, activityElement, parentContext);
-    case 'bpmn:BoundaryEvent': return BoundaryEvent(extensions, activityElement, parentContext);
+/*    case 'bpmn:BoundaryEvent': return BoundaryEvent(extensions, activityElement, parentContext); */
     case 'bpmn:CallActivity': return CallActivity(extensions, activityElement, parentContext);
     case 'bpmn:IntermediateThrowEvent': return IntermediateEvent(extensions, activityElement, parentContext);
     case 'bpmn:IntermediateCatchEvent': return IntermediateEvent(extensions, activityElement, parentContext);
@@ -37,23 +37,21 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
   function Base() {
     debug('BASE');
+    debug(io);
     let loadedIo = io;
     if (!loadedIo && form) {
       loadedIo = FormIo(form, parentContext);
     }
+
+    activityElement.listeners = listeners;
+    activityElement.behaviour.io = loadedIo;
     return { activate, deactivate };
     /*
-      only activate and deactivate are public...
-      io: loadedIo,
-      properties,
-      listeners,
-      execute,
-      resume,
-      id, $type,
-      activate,
-      deactivate
-    };
-      */
+    return Object.assign({},extensions, {
+       activate, deactivate, io: loadedIo, properties, listeners, id, $type }
+       , ( form ? { form: loadedIo } : {} )
+    );
+    */
 
     function activate(message) {
       debug('BASE - activate - message: %o', message);

@@ -14,7 +14,7 @@
         <camunda:connector>
           <camunda:inputOutput>
             <camunda:inputParameter name="emailAddress" />
-            <camunda:outputParameter name="messageId" />
+            <camunda:outputParameter name="messageId" value="${result}"/>
           </camunda:inputOutput>
           <camunda:connectorId>send-email</camunda:connectorId>
         </camunda:connector>
