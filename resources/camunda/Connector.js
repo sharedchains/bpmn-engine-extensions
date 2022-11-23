@@ -1,128 +1,135 @@
 'use strict';
 
-const Debug = require('debug');
 const Parameter = require('./Parameter');
 const getNormalizedResult = require('./getNormalizedResult');
 
-module.exports = function Connector(connector, activityElement, parentContext) {
-  const type = connector.$type;
-  const name = connector.connectorId;
-  const id = connector.connectorId;
-  const {environment} = parentContext;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}:${id}`);
+function Connector(source, activityElement) {
+  const id = source.connectorId;
+  const type = source.$type;
+  const name = source.connectorId;
+  const environment = activityElement.environment;
+  const debug = environment.Logger(`${type}:${id}`).debug;
 
-  let inputParameters, outputParameters;
+  let _inputParameters, _outputParameters;
 
-  debug('>>> START: connector: %o', connector);
-  if (connector.inputOutput) {
-    if (connector.inputOutput.inputParameters) {
-      inputParameters = connector.inputOutput.inputParameters.map(formatParameter);
+  debug('>>> START: connector: %o', id);
+  if (source.inputOutput) {
+    if (source.inputOutput.inputParameters) {
+      _inputParameters = source.inputOutput.inputParameters.map(formatParameter);
     }
-    if (connector.inputOutput.outputParameters) {
-      outputParameters = connector.inputOutput.outputParameters.map(formatParameter);
+    if (source.inputOutput.outputParameters) {
+      _outputParameters = source.inputOutput.outputParameters.map(formatParameter);
     }
   }
-  debug('INPUT: %o', inputParameters);
-  debug('OUTPUT: %o', outputParameters);
+  debug('(connector)INPUT: %o', _inputParameters);
+  debug('(connector)OUTPUT: %o', _outputParameters);
 
-  debug(`<<< DONE: connector: <${name}> type`, type);
+  debug(`<<< DONE: connector: <${name}> type ${type}`);
 
-  return {
-    name,
-    type,
-    id: name,
-    activate,
-    deactivate
-  };
-
-  function deactivate() {
-    debug('deactivated');
+  function formatParameter(parm) {
+    return Parameter(Object.assign({ positional: true}, parm), environment);
   }
 
-  function activate(parentApi, inputContext) {
+  const connector = function(_activityElement, inputContext) {
+    this.activityElement = _activityElement;
+    this.environment = _activityElement.environment;
+    this.id = source.connectorId;
+    this.type = source.$type;
+    this.name = source.connectorId;
+    this.inputParameters = _inputParameters;
+    this.outputParameters = _outputParameters;
+    debug('INPUT: %o', this.inputParameters);
+    debug('OUTPUT: %o', _outputParameters);
+
     // populated by getInputArguments() and getOutputArguments()
-    let iParms, oParms;
-    let activityId = 'unknown';
-    let parentType = 'unknown';
+    this.iParms = null;
+    this.oParms = null;
 
-    debug('================ activateConnector: %o', inputContext);
-    if (parentApi.id) activityId = parentApi.id;
-    else if (parentApi.content.id) activityId = parentApi.content.id;
+    this.isLoopContext = inputContext.content.isMultiInstance;
+    this.index = inputContext.content.index;
+    this.inputContext = inputContext;
 
-    if (parentApi.type) parentType = parentApi.type;
-    else if (parentApi.content.type) parentType = parentApi.content.type;
+    console.log(inputContext);
 
-    const {isLoopContext, index} = inputContext.content;
+    debug('>>> Activate %o - type: %o', _activityElement.id, _activityElement.type);
+    debug(`<${_activityElement.id}> service${this.isLoopContext ? ` loop context iteration ${this.index}` : ''} activated`);
 
-    debug('>>> Activate %o - type: %o', activityId, parentType);
-    debug(`<${activityId}> service${isLoopContext ? ` loop context iteration ${index}` : ''} activated`);
+    /*
+  TODO:
+  if (parentType === 'bpmn:IntermediateThrowEvent') {
+    debug('>>> Activate: activity: %o', this.activityElement);
+    debug('>>> Activate: environment: %o', environment);
+    const origCallback = activityElement.eventDefinitions[0].execute;
+    activityElement.eventDefinitions[0].execute = (executeMessage) => {
+      this.execute(executeMessage, origCallback);
+    };
+  }
+  */
 
-    if (parentType === 'bpmn:IntermediateThrowEvent') {
-      debug('>>> Activate: connector: %o', connector);
-      debug('>>> Activate: activity: %o', activityElement);
-      debug('>>> Activate: environment: %o', environment);
-      const origCallback = activityElement.eventDefinitions[0].execute;
-      activityElement.eventDefinitions[0].execute = (executeMessage) => {
-        execute(executeMessage, origCallback);
-      };
-    }
-
-    return {
-      name,
-      type: parentType,
-      execute,
-      setInputContext
+    this.setInputContext = function setInputContext(newContext) {
+      this.inputContext = newContext;
     };
 
-    function setInputContext(newContext) {
-      inputContext = newContext;
-    }
-
-    function execute(message, callback) {
-      const inputArgs = getInputArguments();
-      const loopArgs = getLoopArguments(message);
-      debug('execute inputArgs: %o', inputArgs);
-      debug('execute loopArgs: %o', loopArgs);
+    this.execute = function execute(message, callback) {
+      const inputArgs = this.getInputArguments();
+      const loopArgs = this.getLoopArguments(message);
       const executeArgs = [];
       executeArgs.push({
-        inputArgs
+        variables: {
+          ...this.activityElement.environment.variables
+          , ...inputArgs
+        }
         , loopArgs
-        , parentContext
         , message
-        , connector
-        , variables: parentContext.environment.variables
       });
-      executeArgs.push(serviceCallback);
 
-      const serviceFn = environment.getServiceByName(name);
-      debug('%o has serviceFn ? %o', name, (serviceFn ? 'yes' : 'nada'));
-      if (serviceFn === null) {
-        // eslint-disable-next-line no-console
-        console.warn('>> %o/%o MISSING ServiceFn', id, name);
-        return callback('Missing service function', null);
-      }
-      return serviceFn.apply(parentApi, executeArgs);
-
-      function serviceCallback(err, args) {
-        let x = getNormalizedResult(args || {});
-        setInputContext(Object.assign({},
-            inputContext
-            , x
-            , { variables: x }));
-        const output = getOutput(args);
-          debug('aftercallback GOT: %o', output);
+      console.log('+++++ execute args: %o', executeArgs);
+      const serviceCallback = (err, args) => {
+        debug('aftercallback args: %o', (args || {}));
         if (err) {
           debug('error: %o', err);
-          debug(`<${name}> error: ` + (err.message ? err.message : 'no error message'));
-        } else {
-          debug(`<${name}> completed`);
+          debug(`<${this.name}> error: ` + (err.message ? err.message : 'no error message'));
+          return callback(err, null);
         }
+        const output = this.getOutput(args || {});
+        console.log('**************************** aftercallback OUTPUT: %o', output);
+        let io = this.activityElement.behaviour.io;
+        if (io) {
+          if (io.activate) io = io.activate(this.activityElement, this.inputContext);
+          console.log('++++++++++++++++++++++++++ setRESULT');
+          io.setResult(output);
+          console.log('**************************** aftercallback ACT-OUTPUT: %o', io.getOutput());
+        }
+        debug(`<${this.name}> completed`);
 
         return callback(err, output);
       }
-    }
+      executeArgs.push(serviceCallback);
 
-    function getLoopArguments(message) {
+      const serviceFn = this.environment.getServiceByName(this.name);
+      debug('%o has serviceFn ? %o', this.name, (serviceFn ? 'yes' : 'nada'));
+      if (serviceFn === null) {
+        // eslint-disable-next-line no-console
+        console.warn('>> %o/%o MISSING ServiceFn', this.id, this.name);
+        return callback('Missing service function', null);
+      }
+      try
+      {
+        console.error('============================================================== CALL SERVICEFN');
+        let res = serviceFn.apply(this.parentApi, executeArgs);
+        if (res!==undefined) {
+          console.log('SERVICEFN - result: %o', res);
+          serviceCallback(null, res);
+        }
+        console.error('============================================================== END OF SERVICEFN');
+      } catch(err) {
+        console.error('============================================================== ERR SERVICEFN');
+        serviceCallback(err, null);
+      }
+
+    };
+
+    this.getLoopArguments = function getLoopArguments(message) {
       debug('getLoopArgs msg: %o', message);
       const { content } = message;
       if (!content.isMultiInstance) {
@@ -131,76 +138,92 @@ module.exports = function Connector(connector, activityElement, parentContext) {
 
       return { index: content.index
         , item: content.item
-        , loopCardinality: content.item };
-    }
+        , loopCardinality: content.loopCardinality };
+    };
 
-    function getInputArguments() {
-      debug('getInputArguments: %o', inputParameters);
-      if (inputParameters) {
+    this.getInputArguments = function getInputArguments() {
+      debug('getInputArguments: %o', this.inputParameters);
+      if (this.inputParameters) {
         const inputArgs = {};
-        getInputParameters().map((parm) => {
+        this.getInputParameters().map((parm) => {
           inputArgs[parm.name] = parm.get();
         });
         return inputArgs;
       }
 
-      return [inputContext];
-    }
+      let { io } = this.activityElement.behaviour;
+      if (io) {
+        if (io.activate) io = io.activate(this.activityElement, this.inputContext);
+        return io.getInput();
+      }
+      return {};
+    };
 
-    function getOutput(result) {
+    this.getOutput = function getOutput(result) {
+      console.log('+++++++ connector getOutput: %o', result);
       if (result === null) return null;
 
       const resolveResult = getNormalizedResult(result);
-      if (!outputParameters) return resolveResult;
+      if (!_outputParameters) return resolveResult;
 
-      const outputParms = getOutputParameters(isLoopContext);
-      if (outputParameters.length === 0) {
+      const outputParms = this.getOutputParameters(this.isLoopContext);
+      if (_outputParameters.length === 0) {
         Object.keys(resolveResult).forEach(key => {
-          environment.assignVariables(key, resolveResult[key]);
+          this.environment.assignVariables(key, resolveResult[key]);
         });
+        console.log('+++++++ connector getOutput resolveResult: %o', resolveResult);
         return resolveResult;
       }
-      if (outputParms.length === 1) {
-        const parm = outputParms[0];
-        parm.set(parm.get()
-          || resolveResult[parm.name] || result);
-        parm.save();
-        return { [parm.name]: parm.get() };
-      }
       const reduced = {};
-      outputParms.reduce((output, parm, idx) => {
+      console.log('+++++++ connector getOutput params: %o', outputParms);
+      outputParms.reduce((_output, parm, idx) => {
         debug('getOutput - reduce - parm: %o  idx: %o - value: %o', parm, idx, parm.get());
-//        parm.set(resolveResult[parm.name]);
-//        parm.save();
-        reduced[parm.name] = parm.get();
-        return { [parm.name]: parm.get() };
+        reduced[parm.name] = parm.resolve(resolveResult);
+        parm.save();
       }, {});
-        return reduced;
-    }
+      console.log('+++++++ connector getOutput reduced: %o', reduced);
+      return reduced;
+    };
 
-    function getInputParameters() {
-      debug('************************* getInputParameters: ctx: %o has iParms?%o isLoop?%o ', inputContext, iParms?'Y':'N', isLoopContext?'Y':'N');
-      if (iParms && !isLoopContext) return iParms;
-      if (!inputParameters) return [];
-      iParms = inputParameters.map((parm) => parm.activate(inputContext));
-      iParms.forEach(parm => {
-        debug('getInputArguments: %o: %o', parm.name, parm.get());
-      });
-      return iParms;
-    }
+    this.getInputParameters = function getInputParameters() {
+      let iContext = { ...this.inputContext }
 
-    function getOutputParameters(reassign) {
-      debug('************************* getOutputParameters: ctx: %o has iParms?%o isLoop?%o reassing?%o', inputContext
-        , oParms?'Y':'N', isLoopContext?'Y':'N', reassign?'Y':'N');
-      if (!outputParameters) return [];
-      if (!reassign && oParms) return oParms;
-      oParms = outputParameters.map((parm) => parm.activate(inputContext));
-      debug('getOutputParameters return: %o', oParms);
-      return oParms;
-    }
-  }
+      let io = this.activityElement.behaviour.io;
+      if (io) {
+        if (io.activate) io = io.activate(this.activityElement, this.inputContext);
+        console.error('>>>> INPUT-CTX: %o', this.inputContext);
+        console.error('>>>> INPUT-IO: %o', io.getInput());
+        iContext = { ...iContext, ...io.getInput()};
+      }
+      debug('************************* getInputParameters: ctx: %o has iParms?%o isLoop?%o ', iContext, this.iParms?'Y':'N', this.isLoopContext?'Y':'N');
+      console.error(iContext);
+      if (this.iParms && !this.isLoopContext) return this.iParms;
+      if (!this.inputParameters) return [];
+      this.iParms = this.inputParameters.map((parm) => parm.activate(iContext));
+      return this.iParms;
+    };
 
-  function formatParameter(parm) {
-    return Parameter(Object.assign({ positional: true}, parm), environment);
-  }
-};
+    this.getOutputParameters = function getOutputParameters(reassign) {
+      debug('************************* getOutputParameters: ctx: %o has iParms?%o isLoop?%o reassing?%o', this.inputContext
+        , this.oParms?'Y':'N', this.isLoopContext?'Y':'N', reassign?'Y':'N');
+
+      let iContext = { ...this.inputContext }
+
+      let io = this.activityElement.behaviour.io;
+      if (io) {
+        if (io.activate) io = io.activate(this.activityElement, this.inputContext);
+        console.error('>>>> OUTPUT-CTX: %o', this.inputContext);
+        console.error('>>>> OUTPUT-IO: %o', io.getOutput());
+        iContext = { ...iContext, ...io.getOutput()};
+      }
+      if (!reassign && this.oParms) return this.oParms;
+      this.oParms = _outputParameters.map((parm) => parm.activate(iContext));
+      debug('getOutputParameters return: %o', this.oParms);
+      return this.oParms;
+    };
+  };
+
+  return connector;
+}
+
+module.exports = Connector;

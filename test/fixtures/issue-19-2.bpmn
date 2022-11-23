@@ -2,9 +2,9 @@
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="4.11.1">
   <bpmn:process id="issue-19-error-state" isExecutable="true">
     <bpmn:startEvent id="StartEvent_1" name="Start">
-      <bpmn:outgoing>SequenceFlow_1ye6wuu</bpmn:outgoing>
+      <bpmn:outgoing>AfterStartSequenceFlow</bpmn:outgoing>
     </bpmn:startEvent>
-    <bpmn:sequenceFlow id="SequenceFlow_1ye6wuu" sourceRef="StartEvent_1" targetRef="makeRequestService" />
+    <bpmn:sequenceFlow id="AfterStartSequenceFlow" sourceRef="StartEvent_1" targetRef="makeRequestService" />
     <bpmn:serviceTask id="makeRequestService" name="Make request">
       <bpmn:extensionElements>
         <camunda:inputOutput>
@@ -16,7 +16,7 @@
           <camunda:inputOutput>
             <camunda:inputParameter name="options">
               <camunda:map>
-                <camunda:entry key="uri">${apiUrl}</camunda:entry>
+                <camunda:entry key="url">${apiUrl}</camunda:entry>
                 <camunda:entry key="json">${true}</camunda:entry>
               </camunda:map>
             </camunda:inputParameter>
@@ -30,74 +30,77 @@
           <camunda:connectorId>get</camunda:connectorId>
         </camunda:connector>
       </bpmn:extensionElements>
-      <bpmn:incoming>SequenceFlow_1ye6wuu</bpmn:incoming>
-      <bpmn:incoming>SequenceFlow_07wpp9a</bpmn:incoming>
-      <bpmn:outgoing>SequenceFlow_1rt4cxf</bpmn:outgoing>
+      <bpmn:incoming>AfterStartSequenceFlow</bpmn:incoming>
+      <bpmn:incoming>APIreadySequenceFlow</bpmn:incoming>
+      <bpmn:outgoing>gotResponse</bpmn:outgoing>
     </bpmn:serviceTask>
     <bpmn:endEvent id="end" name="End">
       <bpmn:incoming>toEnd-flow</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="SequenceFlow_1rt4cxf" sourceRef="makeRequestService" targetRef="joinGateway" />
-    <bpmn:sequenceFlow id="SequenceFlow_1ea996h" name="" sourceRef="joinGateway" targetRef="statusGateway">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${environment.services.statusCodeOk(environment.variables.statusCode)}</bpmn:conditionExpression>
-    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="gotResponse" sourceRef="makeRequestService" targetRef="joinGateway" />
+    <bpmn:sequenceFlow id="checkErrorOrResponseFlow" name="" sourceRef="joinGateway" targetRef="statusGateway" />
     <bpmn:boundaryEvent id="requestErrorEvent" name="Errored" attachedToRef="makeRequestService">
       <bpmn:outgoing>errorFlow</bpmn:outgoing>
       <bpmn:errorEventDefinition errorRef="Error_0w1hljb" camunda:errorCodeVariable="requestErrorCode" camunda:errorMessageVariable="requestErrorMessage" />
     </bpmn:boundaryEvent>
     <bpmn:sequenceFlow id="errorFlow" sourceRef="requestErrorEvent" targetRef="joinGateway" />
-    <bpmn:boundaryEvent id="signalTimeoutEvent" name="You have got 10 minutes" attachedToRef="waitForSignalTask">
-      <bpmn:timerEventDefinition>
-        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${environment.variables.timeout}</bpmn:timeDuration>
-      </bpmn:timerEventDefinition>
-    </bpmn:boundaryEvent>
-    <bpmn:sequenceFlow id="SequenceFlow_07wpp9a" sourceRef="waitForSignalTask" targetRef="makeRequestService" />
-    <bpmn:manualTask id="waitForSignalTask" name="Signal when API ready">
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:outputParameter name="retry">${true}</camunda:outputParameter>
-        </camunda:inputOutput>
-      </bpmn:extensionElements>
-      <bpmn:incoming>toManualDefaultFlow</bpmn:incoming>
-      <bpmn:outgoing>SequenceFlow_07wpp9a</bpmn:outgoing>
-    </bpmn:manualTask>
+    <bpmn:sequenceFlow id="APIreadySequenceFlow" sourceRef="waitForSignalTask" targetRef="makeRequestService" />
     <bpmn:sequenceFlow id="toTerminateFlow" name="Yep!" sourceRef="retryGateway" targetRef="terminateEvent">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${retried}</bpmn:conditionExpression>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${retry}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     <bpmn:endEvent id="terminateEvent" name="Terminate">
       <bpmn:incoming>toTerminateFlow</bpmn:incoming>
       <bpmn:terminateEventDefinition />
     </bpmn:endEvent>
     <bpmn:exclusiveGateway id="statusGateway" name="Success?" default="toRetryGW-flow">
-      <bpmn:incoming>SequenceFlow_1ea996h</bpmn:incoming>
+      <bpmn:incoming>checkErrorOrResponseFlow</bpmn:incoming>
       <bpmn:outgoing>toEnd-flow</bpmn:outgoing>
       <bpmn:outgoing>toRetryGW-flow</bpmn:outgoing>
     </bpmn:exclusiveGateway>
     <bpmn:sequenceFlow id="toEnd-flow" name="Yay!" sourceRef="statusGateway" targetRef="end">
-      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${environment.services.statusCodeOk(environment.variables.statusCode)}</bpmn:conditionExpression>
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${environment.services.statusCodeOk(environment.variables)}</bpmn:conditionExpression>
     </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="toManualDefaultFlow" name="Try again" sourceRef="retryGateway" targetRef="waitForSignalTask" />
-    <bpmn:parallelGateway id="joinGateway" name="">
-      <bpmn:incoming>SequenceFlow_1rt4cxf</bpmn:incoming>
-      <bpmn:incoming>errorFlow</bpmn:incoming>
-      <bpmn:outgoing>SequenceFlow_1ea996h</bpmn:outgoing>
-    </bpmn:parallelGateway>
     <bpmn:exclusiveGateway id="retryGateway" name="Retried?" default="toManualDefaultFlow">
-      <bpmn:extensionElements>
-        <camunda:inputOutput>
-          <camunda:inputParameter name="retried">${environment.variables.retry}</camunda:inputParameter>
-          <camunda:outputParameter name="errorCode">${environment.services.extractErrorCode(environment.variables.requestErrorMessage)}</camunda:outputParameter>
-        </camunda:inputOutput>
-      </bpmn:extensionElements>
       <bpmn:incoming>toRetryGW-flow</bpmn:incoming>
       <bpmn:outgoing>toTerminateFlow</bpmn:outgoing>
       <bpmn:outgoing>toManualDefaultFlow</bpmn:outgoing>
     </bpmn:exclusiveGateway>
     <bpmn:sequenceFlow id="toRetryGW-flow" name="No..." sourceRef="statusGateway" targetRef="retryGateway" />
+    <bpmn:exclusiveGateway id="joinGateway" name="" default="checkErrorOrResponseFlow">
+      <bpmn:incoming>gotResponse</bpmn:incoming>
+      <bpmn:incoming>errorFlow</bpmn:incoming>
+      <bpmn:outgoing>checkErrorOrResponseFlow</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:boundaryEvent id="signalTimeoutEvent" name="You have got 10 minutes" attachedToRef="waitForSignalTask">
+      <bpmn:outgoing>ApiNotReadyTimeoutFlow</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition_0849v2v">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${environment.variables.timeout}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:userTask id="waitForSignalTask" name="Signal when API ready">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:outputParameter name="retry">${true}</camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>toManualDefaultFlow</bpmn:incoming>
+      <bpmn:outgoing>APIreadySequenceFlow</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="ApiNotReadyTimeoutFlow" sourceRef="signalTimeoutEvent" targetRef="NotReadyTerminateEvent" />
+    <bpmn:endEvent id="NotReadyTerminateEvent">
+      <bpmn:incoming>ApiNotReadyTimeoutFlow</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TerminateEventDefinition_1dj4zf7" />
+    </bpmn:endEvent>
   </bpmn:process>
-  <bpmn:error id="Error_0w1hljb" name="requestError" errorCode="${services.extractErrorCode(result.error)}" />
+  <bpmn:error id="Error_0w1hljb" name="requestError" errorCode="${environment.variables.expectedError}" camunda:errorMessage="request error" />
   <bpmndi:BPMNDiagram id="BPMNDiagram_1">
     <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="issue-19-error-state">
+      <bpmndi:BPMNEdge id="Flow_1ssuqu3_di" bpmnElement="ApiNotReadyTimeoutFlow">
+        <di:waypoint x="322" y="372" />
+        <di:waypoint x="322" y="440" />
+        <di:waypoint x="392" y="440" />
+      </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SequenceFlow_0pkq4wo_di" bpmnElement="toRetryGW-flow">
         <di:waypoint x="663" y="150" />
         <di:waypoint x="663" y="289" />
@@ -109,14 +112,14 @@
         <di:waypoint x="638" y="314" />
         <di:waypoint x="372" y="314" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="504" y="291" width="46" height="14" />
+          <dc:Bounds x="505" y="291" width="46" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SequenceFlow_17aoq0e_di" bpmnElement="toEnd-flow">
         <di:waypoint x="688" y="125" />
         <di:waypoint x="780" y="125" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="724" y="104" width="21" height="14" />
+          <dc:Bounds x="724" y="103" width="21" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SequenceFlow_0pe6wn5_di" bpmnElement="toTerminateFlow">
@@ -126,10 +129,8 @@
           <dc:Bounds x="717" y="294" width="22" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="SequenceFlow_07wpp9a_di" bpmnElement="SequenceFlow_07wpp9a">
+      <bpmndi:BPMNEdge id="SequenceFlow_07wpp9a_di" bpmnElement="APIreadySequenceFlow">
         <di:waypoint x="322" y="274" />
-        <di:waypoint x="322" y="220" />
-        <di:waypoint x="322" y="220" />
         <di:waypoint x="322" y="165" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="292" y="343.5" width="90" height="13" />
@@ -144,21 +145,21 @@
           <dc:Bounds x="402" y="333.5" width="90" height="13" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="SequenceFlow_1ea996h_di" bpmnElement="SequenceFlow_1ea996h">
+      <bpmndi:BPMNEdge id="SequenceFlow_1ea996h_di" bpmnElement="checkErrorOrResponseFlow">
         <di:waypoint x="547" y="125" />
         <di:waypoint x="638" y="125" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="573" y="234" width="40" height="13" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="SequenceFlow_1rt4cxf_di" bpmnElement="SequenceFlow_1rt4cxf">
+      <bpmndi:BPMNEdge id="SequenceFlow_1rt4cxf_di" bpmnElement="gotResponse">
         <di:waypoint x="372" y="125" />
         <di:waypoint x="497" y="125" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="389.5" y="233.5" width="90" height="13" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="SequenceFlow_1ye6wuu_di" bpmnElement="SequenceFlow_1ye6wuu">
+      <bpmndi:BPMNEdge id="SequenceFlow_1ye6wuu_di" bpmnElement="AfterStartSequenceFlow">
         <di:waypoint x="226" y="125" />
         <di:waypoint x="272" y="125" />
         <bpmndi:BPMNLabel>
@@ -180,9 +181,6 @@
           <dc:Bounds x="788" y="146" width="20" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="ManualTask_1nxtwwy_di" bpmnElement="waitForSignalTask">
-        <dc:Bounds x="272" y="274" width="100" height="80" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EndEvent_18ja9zt_di" bpmnElement="terminateEvent">
         <dc:Bounds x="780" y="296" width="36" height="36" />
         <bpmndi:BPMNLabel>
@@ -195,22 +193,25 @@
           <dc:Bounds x="679" y="138" width="48" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="ParallelGateway_0os8j1e_di" bpmnElement="joinGateway">
-        <dc:Bounds x="497" y="100" width="50" height="50" />
-        <bpmndi:BPMNLabel>
-          <dc:Bounds x="543" y="268" width="60" height="13" />
-        </bpmndi:BPMNLabel>
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="ExclusiveGateway_09lmfqt_di" bpmnElement="retryGateway" isMarkerVisible="true">
         <dc:Bounds x="638" y="289" width="50" height="50" />
         <bpmndi:BPMNLabel>
           <dc:Bounds x="642" y="347" width="42" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="BoundaryEvent_0fkjyc0_di" bpmnElement="signalTimeoutEvent">
+      <bpmndi:BPMNShape id="Gateway_1yy2e88_di" bpmnElement="joinGateway" isMarkerVisible="true">
+        <dc:Bounds x="497" y="100" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_023qm5m_di" bpmnElement="waitForSignalTask">
+        <dc:Bounds x="272" y="274" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1eyu36o_di" bpmnElement="NotReadyTerminateEvent">
+        <dc:Bounds x="392" y="422" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_054fnkm_di" bpmnElement="signalTimeoutEvent">
         <dc:Bounds x="304" y="336" width="36" height="36" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="285" y="377" width="79" height="27" />
+          <dc:Bounds x="350" y="377" width="79" height="27" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="BoundaryEvent_0e4ddbq_di" bpmnElement="requestErrorEvent">

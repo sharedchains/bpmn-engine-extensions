@@ -1,14 +1,10 @@
 'use strict';
 
-const camundaExtensions = require('../../../resources/camunda');
-const { debug } = require('../../helpers/testHelpers');
-const EventEmitter2 = require('eventemitter2');
-const {Engine} = require('bpmn-engine');
-const { assert, expect } = require('chai');
+const { debug, testEngine } = require('../../helpers/testHelpers');
 
 describe('MultiInstanceLoopCharacteristics', () => {
   describe('collection expression', () => {
-    it('loops each item', (done) => {
+    it('loops each item', () => {
       const source = `
       <bpmn:definitions id="Definitions_1" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -26,51 +22,47 @@ describe('MultiInstanceLoopCharacteristics', () => {
         </bpmn:process>
       </bpmn:definitions>`;
 
-      const engine = new Engine({
-        source,
-        extensions: { camunda: camundaExtensions.extension },
-        moddleOptions: { camunda: camundaExtensions.moddleOptions },
-      });
-      const listener = new EventEmitter2();
+      return testEngine({ source, variables: {
+        input: [1, 2, 3, 7]
+      }}, ({ engine, listener, res, rej}) => {
+        let sum = 0;
+        let count = 0;
 
-      let startCount = 0;
-      listener.onAny((event, args) => {
-        if (args.content.error) {
-          assert.fail(args.content.error.description);
-        }
-        debug('********************** %o', event);
-      });
-      listener.on('start-recurring', () => {
-        startCount++;
-      });
+        listener.on('activity.start', (api) => {
+          if (api.id !== 'recurring') return;
 
-      let sum = 0;
-      engine.execute({
-        listener,
-        services: {
-          loop: (executionContext, callback) => {
-            debug('loop: %o', executionContext);
-            sum += executionContext.item;
-            callback(null, sum);
+          api.broker.subscribeTmp('execution', 'execute.iteration.next', () => {
+            count++;
+          }, { priority: 10000, noAck: true });
+        });
+        listener.on('activity.end', (context) => {
+          try {
+            expect(count).to.be.equal(4);
+            expect(context.content.output).to.deep.equal([
+              [1], [3], [6], [13]
+            ]);
+            expect(sum, 'sum').to.equal(13);
+            res();
+          } catch (ex) {
+            rej(ex);
           }
-        },
-        variables: {
-          input: [1, 2, 3, 7]
-        }
-      });
-      //      engine.once('end', () => {
-      listener.on('activity.end', (context) => {
-        debug('output: %o', context.content.output);
-        expect(context.content.output).to.deep.equal([
-          [1], [3], [6], [13]
-        ]);
-        expect(sum, 'sum').to.equal(13);
-        debug('> done');
-        done();
+        });
+        engine.execute({
+          listener,
+          services: {
+            loop: (executionContext, callback) => {
+              debug('loop: %o', executionContext);
+              sum += executionContext.item;
+              callback(null, sum);
+            }
+          },
+        }, (err) => {
+          rej(err);
+        });
       });
     });
 
-    it('sets loop item to defined elementVariable', (done) => {
+    it('sets loop item to defined elementVariable', () => {
       const source = `
       <bpmn:definitions id="Definitions_1" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -88,45 +80,36 @@ describe('MultiInstanceLoopCharacteristics', () => {
         </bpmn:process>
       </bpmn:definitions>`;
 
-      const engine = new Engine({
-        source,
-        extensions: { camunda: camundaExtensions.extension },
-        moddleOptions: { camunda: camundaExtensions.moddleOptions },
-      });
-      const listener = new EventEmitter2();
+      return testEngine({ source, variables: {
+        input: [1, 2, 3, 7]
+      }}, ({ engine, listener, res, rej}) => {
 
-      listener.onAny((event, args) => {
-        if (args.content.error) {
-          debug('>>> ERROR! %o', args.content.error.description);
-          assert.fail(args.content.error.description);
-        }
-        debug('********************** %o', event);
-      });
-
-      let sum = 0;
-      listener.on('activity.end', (context) => {
-        debug(context.content.output);
-        expect(sum, 'sum').to.equal(13);
-        done();
-      });
-      engine.execute({
-        listener,
-        services: {
-          loop: (executionContext, callback) => {
-            debug('loop: %o', executionContext);
-            sum += executionContext.inputVar;
-            callback(null, sum);
+        let sum = 0;
+        listener.on('activity.end', () => {
+          try {
+            expect(sum, 'sum').to.equal(13);
+            res();
+          } catch (ex) {
+            rej(ex);
           }
-        },
-        variables: {
-          input: [1, 2, 3, 7]
-        }
+        });
+        engine.execute({
+          listener,
+          services: {
+            loop: (executionContext, callback) => {
+              debug('loop: %o', executionContext);
+              sum += executionContext.inputVar;
+              callback(null, sum);
+            }
+          }
+        }, (err) => {
+          rej(err);
+        });
       });
-      //      engine.once('end', () => {
     });
   });
 
-  it('works in parallel', (done) => {
+  it('works in parallel', () => {
     const source = `
     <bpmn:definitions id="Definitions_1" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://bpmn.io/schema/bpmn">
@@ -144,35 +127,19 @@ describe('MultiInstanceLoopCharacteristics', () => {
       </bpmn:process>
     </bpmn:definitions>`;
 
-    const engine = new Engine({
-      source,
-      extensions: { camunda: camundaExtensions.extension },
-      moddleOptions: { camunda: camundaExtensions.moddleOptions },
-    });
-
-    engine.getDefinitions().then(() => {
-
-      const listener = new EventEmitter2();
-      listener.onAny((event, args) => {
-        if (args.content.error) {
-          debug('>>> ERROR! %o', args.content.error.description);
-          assert.fail(args.content.error.description);
-        }
-      });
+    return testEngine({ source, variables: {
+      input: [1, 2, 3, 7]
+    }}, ({ engine, listener, res, rej}) => {
 
       const sum = [];
       listener.on('activity.end', (context) => {
-        const output = context.content.output;
-        // chai loops endlessly if we do check !!! (why??)
-        expect(sum[0][0]).to.equal(output[0][0]);
-        expect(sum[1][0]).to.equal(output[1][0]);
-        expect(sum[2][0]).to.equal(output[2][0]);
-        expect(sum[3][0]).to.equal(output[3][0]);
-        expect(sum[4][0]).to.equal(output[4][0]);
-        expect(sum[5][0]).to.equal(output[5][0]);
-        expect(sum[6][0]).to.equal(output[6][0]);
-        expect(sum[7][0]).to.equal(output[7][0]);
-        done();
+        try {
+          const output = context.content.output;
+          expect(sum).to.deep.equal(output);
+          res();
+        } catch (ex) {
+          rej(ex);
+        }
       });
       engine.execute({
         listener,
@@ -186,10 +153,11 @@ describe('MultiInstanceLoopCharacteristics', () => {
         variables: {
           mrList: [1, 1, 2, 3, 5, 8, 13, 21]
         }
+      }, (err) => {
+        if (err) rej(err);
+        rej('should not be here');
       });
 
-    }).catch(error => {
-      assert.fail(error);
     });
   });
 });

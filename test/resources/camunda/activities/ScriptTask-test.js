@@ -1,7 +1,6 @@
 'use strict';
 
-const camundaExtensions = require('../../../../resources/camunda');
-const {getDefinition, debug} = require('../../../helpers/testHelpers');
+const {initEngine} = require('../../../helpers/testHelpers');
 
 describe('ScriptTask', () => {
   describe('io', () => {
@@ -24,7 +23,7 @@ describe('ScriptTask', () => {
         </process>
       </definitions>`;
 
-      getDefinition(source, camundaExtensions).then((definition) => {
+      initEngine(source).then(({ definition }) => {
         definition.environment.assignVariables({input: 2});
 
         const task = definition.getActivityById('ping');

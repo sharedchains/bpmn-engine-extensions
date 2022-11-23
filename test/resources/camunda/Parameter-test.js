@@ -1,17 +1,15 @@
 'use strict';
 
 const Parameter = require('../../../resources/camunda/Parameter');
-const camundaExtensions = require('../../../resources/camunda');
-const {Engine} = require('bpmn-engine');
+const {getEngine} = require('../../helpers/testHelpers');
 
 describe('Parameter', () => {
-  const engine = new Engine({
-    source: null,
-    extensions: { camunda: camundaExtensions.extension },
-    moddleOptions: { camunda: camundaExtensions.moddleOptions },
-    variables: {
+  let engine;
+  before((done) => {
+    engine = getEngine({ variables: {
       arbval: 37
-    }
+    }});
+    done();
   });
   describe('list', () => {
     it('input returns array', (done) => {

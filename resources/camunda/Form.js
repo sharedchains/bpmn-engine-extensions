@@ -1,16 +1,16 @@
 'use strict';
 
-const Debug = require('debug');
 const FormField = require('./FormField');
 
 module.exports = Form;
 
-function Form(formData, {environment}) {
+function Form(formData, parentContext) {
+  const { environment } = parentContext;
   const formFields = formData.fields;
   if (!formFields || !formFields.length) return;
 
   const {id, $type: type} = formData;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const debug = environment.Logger(`bpmn-engine:${type.toLowerCase()}`).debug;
 
   return {
     id,
@@ -35,7 +35,7 @@ function Form(formData, {environment}) {
       getOutput,
       getState,
       reset,
-      resume,
+      recover,
       setFieldValue
     };
 
@@ -65,9 +65,7 @@ function Form(formData, {environment}) {
       if (!fieldState.length) return {};
 
       return {
-        form: {
-          fields: fieldState
-        }
+        fields: fieldState
       };
     }
 
@@ -88,7 +86,7 @@ function Form(formData, {environment}) {
       }, {});
     }
 
-    function resume(state) {
+    function recover(state) {
       if (!state || !state.form || !state.form.fields) return;
 
       debug('resume');

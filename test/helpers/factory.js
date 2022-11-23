@@ -8,5 +8,6 @@ module.exports = {
 };
 
 function resource(file) {
-  return fs.readFileSync(path.join(__dirname, '..', 'fixtures', file));
+  // anyway we need a string..
+  return fs.readFileSync(path.join(__dirname, '..', 'fixtures', file)).toString('utf-8');
 }

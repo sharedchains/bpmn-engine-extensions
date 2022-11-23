@@ -1,14 +1,14 @@
 'use strict';
 
-const Debug = require('debug');
 const FormField = require('./FormField');
 
-module.exports = function FormKey(activityElement, {environment}) {
-  const {id} = activityElement;
+module.exports = function FormKey(activityElement) {
+  const {id, environment, behaviour } = activityElement;
   const type = 'camunda:formKey';
+  const { formKey: _formKey } = behaviour;
 
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
-
+  const debug = environment.Logger(`bpmn-engine:x:${type.toLowerCase()}`).debug;
+  debug('loaded for %o', id);
   return {
     id,
     type,
@@ -17,7 +17,8 @@ module.exports = function FormKey(activityElement, {environment}) {
 
   function activate(parentApi, inputContext) {
     const fields = [];
-    let formKey = environment.resolveExpression(activityElement.formKey, inputContext);
+    let formKey = inputContext.form && inputContext.form.formKey ? inputContext.form.formKey
+      : environment.resolveExpression(_formKey, { ...inputContext, ...activityElement.getInput() });
     const {index, isLoopContext} = inputContext;
 
     const {id: activityId} = parentApi;
@@ -26,6 +27,7 @@ module.exports = function FormKey(activityElement, {environment}) {
     const formApi = {
       id: formKey,
       formKey,
+      key: formKey,
       type,
       activate,
       getField,
@@ -35,7 +37,7 @@ module.exports = function FormKey(activityElement, {environment}) {
       getOutput,
       getState,
       reset,
-      resume,
+      recover,
       setFieldValue
     };
 
@@ -61,13 +63,11 @@ module.exports = function FormKey(activityElement, {environment}) {
     function getState() {
       const fieldState = getFieldState();
       const result = {
-        form: {
           formKey
-        }
       };
 
       if (fieldState.length) {
-        result.form.fields = fieldState;
+        result.fields = fieldState;
       }
 
       return result;
@@ -87,8 +87,8 @@ module.exports = function FormKey(activityElement, {environment}) {
       }, {});
     }
 
-    function resume(state) {
-      debug('resume');
+    function recover(state) {
+      debug('recover!');
       if (!state || !state.form) return;
 
       const {formKey: stateFormKey, fields: stateFields} = state.form;

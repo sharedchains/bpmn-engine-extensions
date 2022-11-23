@@ -1,13 +1,10 @@
 'use strict';
 
-const camundaExtensions = require('../../../resources/camunda');
-const {EventEmitter} = require('events');
-const {getDefinition, debug} = require('../../helpers/testHelpers');
+const {getDefinition, initEngine} = require('../../helpers/testHelpers');
 
 describe('Result variable', () => {
   let definition;
-  const listener = new EventEmitter();
-  beforeEach(async () => {
+  beforeEach((done) => {
     const source = `
     <?xml version="1.0" encoding="UTF-8"?>
     <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
@@ -15,7 +12,10 @@ describe('Result variable', () => {
         <serviceTask id="serviceTask" name="Get" camunda:expression="\${environment.services.getService()}" camunda:resultVariable="taskOutput" />
       </process>
     </definitions>`;
-    definition = await getDefinition(source, camundaExtensions, listener);
+    initEngine(source).then(env => {
+      definition = env.definition;
+      done();
+    });
   });
 
   it('ServiceTask with resultVariable is stored as output', (done) => {
@@ -28,13 +28,13 @@ describe('Result variable', () => {
 
     const task = definition.getActivityById('serviceTask');
 
-    listener.on('end', (...args) => {
-      debug('QUI %o', args);
-//      expect(activityApi.getOutput()).to.eql([1, 'success']);
+    task.on('end', (api) => {
+      expect(api.content.output).to.eql([1, 'success']);
     });
 
     definition.on('end', () => {
-      const outputValues = task.behaviour.io.getOutput();
+      const _task = definition.getActivityById('serviceTask');
+      const outputValues = _task.behaviour.io.getOutput();
       expect(outputValues).to.eql({taskOutput: [1, 'success']});
       done();
     });

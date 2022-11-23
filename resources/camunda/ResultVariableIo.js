@@ -4,7 +4,7 @@ const Debug = require('debug');
 const getNormalizedResult = require('./getNormalizedResult');
 const {hasExpression} = require('./utils');
 
-module.exports = function ResultVariableIo(activityElement, {environment}, form) {
+module.exports = function ResultVariableIo(activityElement, {environment}) {
   const {id, $type, resultVariable} = activityElement;
   const type = `${$type}:resultvariable`;
   const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
@@ -14,12 +14,7 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
     id,
     type,
     activate,
-    resume: resumeIo
   };
-
-  function resumeIo(parentApi, inputContext, ioState) {
-    return activate(parentApi, inputContext).resume(ioState);
-  }
 
   function activate(parentApi, inputContext) {
     const {isLoopContext, index} = inputContext;
@@ -32,11 +27,9 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
     const ioApi = {
       id,
       type,
-      getForm,
       getInput,
       getOutput,
       getState,
-      resume,
       save,
       setOutputValue,
       setResult
@@ -44,24 +37,16 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
 
     return ioApi;
 
-    function getForm() {
-      if (!form) return;
-      if (formInstance) return formInstance;
-      formInstance = form.activate(parentApi, inputContext);
-      return formInstance;
-    }
-
     function getInput() {
       return inputContext;
     }
 
     function getOutput() {
       if (isLoopContext) {
-        if (formInstance) return formInstance.getOutput();
         return resultData;
       }
 
-      return formInstance ? formInstance.getOutput() : resultData;
+      return resultData;
     }
 
     function getState() {
@@ -72,21 +57,12 @@ module.exports = function ResultVariableIo(activityElement, {environment}, form)
       return result;
     }
 
-    function resume(ioState) {
-      if (!ioState) return ioApi;
-
-      const ioForm = getForm();
-      if (ioForm) ioForm.resume(ioState.form);
-
-      return ioApi;
-    }
-
     function save() {
       const name = getVariableName(true);
-      const value = formInstance ? formInstance.getOutput() : resultData;
+      const value = resultData;
       if (!name || value === undefined) return;
 
-      environment.setOutputValue(name, value);
+      environment.output[name] = value;
     }
 
     function setOutputValue(name, value) {

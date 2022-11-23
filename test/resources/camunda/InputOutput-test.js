@@ -1,22 +1,13 @@
 'use strict';
 
 const InputOutput = require('../../../resources/camunda/InputOutput');
-const camundaExtensions = require('../../../resources/camunda');
-const {Engine} = require('bpmn-engine');
-const {getDefinition, getEngine, debug} = require('../../helpers/testHelpers');
+const {getDefinition, getEngine, getEnvironment, testEngine, initEngine } = require('../../helpers/testHelpers');
 const { expect } = require('chai');
+const { EventEmitter2 } = require('eventemitter2');
 
 const parentApi = { id: 'test' };
 
 describe('Activity InputOutput', () => {
-  const engine = new Engine({
-    source: null,
-    extensions: { camunda: camundaExtensions.extension },
-    moddleOptions: { camunda: camundaExtensions.moddleOptions },
-    variables: {
-      arbval: 37
-    }
-  });
   describe('behaviour', () => {
     it('script parameter throws if type is not JavaScript', (done) => {
       function test() {
@@ -32,7 +23,7 @@ describe('Activity InputOutput', () => {
             }
           }]
         }, {
-          environment: engine.environment
+          environment: getEnvironment()
         }).activate(parentApi);
       }
 
@@ -46,7 +37,7 @@ describe('Activity InputOutput', () => {
         inputParameters: [],
         outputParameters: []
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       const activatedIo = io.activate(parentApi, {});
@@ -76,7 +67,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       const activatedIo = io.activate(parentApi, {});
@@ -105,7 +96,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
       const activatedIo = io.activate(parentApi, {});
       const inputs = activatedIo.getInput();
@@ -124,7 +115,7 @@ describe('Activity InputOutput', () => {
           definition: {
             $type: 'camunda:script',
             scriptFormat: 'JavaScript',
-            value: '`Me too ${arbval}`;'
+            value: '`Me too ${environment.variables.arbval}`;'
           }
         }],
         outputParameters: [{
@@ -133,7 +124,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment({ variables: { arbval: 37 }})
       });
 
       const activatedIo = io.activate(parentApi);
@@ -144,7 +135,7 @@ describe('Activity InputOutput', () => {
       done();
     });
 
-    it('can access parentContext variables', (done) => {
+    it('can access parentContext variables', () => {
       const source = `
       <?xml version="1.0" encoding="UTF-8"?>
       <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="1.2.2">
@@ -153,7 +144,7 @@ describe('Activity InputOutput', () => {
             <extensionElements>
               <camunda:InputOutput>
                 <camunda:inputParameter name="inputMessage">
-                  <camunda:script scriptFormat="JavaScript">input</camunda:script>
+                  <camunda:script scriptFormat="JavaScript">environment.variables.input</camunda:script>
                 </camunda:inputParameter>
                 <camunda:outputParameter name="message">
                   <camunda:script scriptFormat="JavaScript"><![CDATA[inputMessage + environment.variables.arbval]]>;</camunda:script>
@@ -164,26 +155,25 @@ describe('Activity InputOutput', () => {
         </process>
       </definitions>`;
 
-      getDefinition(source, camundaExtensions).then((definition) => {
-        const env = definition.environment;
-        env.addService('task', (message) => {
-          debug('task: execute with message: %o', message);
-        });
-        env.assignVariables({input: 11});
-
-        const svc = env.getServiceByName('task');
-        expect(svc).to.not.be.null;
-
-        const task = definition.getActivityById('task');
-
-        task.once('start', () => {
-          const inputs = task.behaviour.io.getInput();
-          expect(inputs).to.eql({inputMessage: 11});
-          done();
+      return testEngine({ source
+        , variables: { arbval: 37, input: 11 }
+      }, ({ engine, listener, res, rej }) => {
+        listener.on('activity.start', (api) => {
+          try {
+            const input = api.owner.getInput();
+            expect(input).to.be.ok;
+            expect(input).to.deep.equal({ inputMessage: 11 });
+            res();
+          } catch (ex) {
+            rej(ex);
+          }
         });
 
-        task.run();
-      }).catch(done);
+        engine.execute({ listener }, (err) => {
+          if (err) rej(err);
+          rej('should not get here');
+        });
+      });
     });
   });
 
@@ -207,7 +197,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       expect(io.activate(parentApi, {}).getOutput()).to.eql({
@@ -234,7 +224,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
       expect(io.activate(parentApi, {}).getOutput()).to.eql({
         message: 'Me too',
@@ -252,7 +242,7 @@ describe('Activity InputOutput', () => {
           definition: {
             $type: 'camunda:script',
             scriptFormat: 'JavaScript',
-            value: '`I am ${arbval}`;'
+            value: '`I am ${variables.arbval}`;'
           }
         }, {
           $type: 'camunda:outputParameter',
@@ -260,7 +250,7 @@ describe('Activity InputOutput', () => {
           value: '1'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment({ variables: { arbval: 11 }})
       });
       expect(io.activate(parentApi, {
         variables: {
@@ -282,7 +272,7 @@ describe('Activity InputOutput', () => {
           definition: {}
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       expect(io.activate(parentApi, {
@@ -299,7 +289,7 @@ describe('Activity InputOutput', () => {
           name: 'message'
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       expect(io.activate(parentApi, {}).getOutput()).to.eql({});
@@ -320,7 +310,7 @@ describe('Activity InputOutput', () => {
           }
         }]
       }, {
-        environment: engine.environment
+        environment: getEnvironment()
       });
 
       expect(io.activate(parentApi, {
@@ -332,7 +322,7 @@ describe('Activity InputOutput', () => {
       done();
     });
 
-    it('can access parentContext variables', (done) => {
+    it('output can access parentContext variables', (done) => {
       const source = `
       <?xml version="1.0" encoding="UTF-8"?>
       <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="1.2.2">
@@ -344,7 +334,7 @@ describe('Activity InputOutput', () => {
                   <camunda:script scriptFormat="JavaScript">environment.variables.input</camunda:script>
                 </camunda:inputParameter>
                 <camunda:outputParameter name="message">
-                  <camunda:script scriptFormat="JavaScript"><![CDATA[inputMessage + environment.variables.arbval]]>;</camunda:script>
+                  <camunda:script scriptFormat="JavaScript"><![CDATA[variables.inputMessage + environment.variables.arbval]]>;</camunda:script>
                 </camunda:outputParameter>
               </camunda:InputOutput>
             </extensionElements>
@@ -352,7 +342,7 @@ describe('Activity InputOutput', () => {
         </process>
       </definitions>`;
 
-      getDefinition(source, camundaExtensions).then((definition) => {
+      initEngine(source).then(({ definition }) => {
         definition.environment.assignVariables({input: 11, arbval: 11});
 
         const task = definition.getActivityById('task');
@@ -361,7 +351,9 @@ describe('Activity InputOutput', () => {
           done();
         });
         task.run();
-      }).catch(done);
+      }).catch(ex => {
+        console.error(ex);
+      });
     });
   });
 
@@ -385,7 +377,9 @@ describe('Activity InputOutput', () => {
         </serviceTask>
       </process>
     </definitions>`;
-    const localEngine = getEngine(source);
+    const localEngine = getEngine(source, {
+      emailAddress: 'lisa@example.com'
+    });
     localEngine.execute({
       services: {
         dummy: (_, serviceCallback) => {
@@ -395,9 +389,6 @@ describe('Activity InputOutput', () => {
           return `http://example.com/${path}`;
         }
       },
-      variables: {
-        emailAddress: 'lisa@example.com'
-      }
     });
 
     localEngine.once('end', (execution) => {

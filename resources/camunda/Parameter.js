@@ -51,7 +51,7 @@ function Parameter(parm, environment) {
 
     function get() {
       if (resultValue !== undefined) return resultValue;
-      resultValue = internalGet(context);
+      resultValue = internalGet();
       return resultValue;
     }
 
@@ -59,40 +59,56 @@ function Parameter(parm, environment) {
       resultValue = invalue;
     }
 
-    function resolve(from) {
+    function resolve(from = {}) {
       return internalGet(from);
     }
 
-    function internalGet(from) {
+    function internalGet(from = {}) {
       let _value = null;
-      from = from || inputContext;
+      let loopArgs = {};
+      if (inputContext && inputContext.content && inputContext.content.isMultiInstance) {
+        loopArgs = {
+          item: inputContext.content.item
+          , index: inputContext.content.index
+          , loopCardinality: inputContext.content.loopCardinality
+        };
+      }
+      const ctx = { ...loopArgs, ...inputContext, ...from, environment };
+      /*
       const ctx = Object.assign({}, from
         , { variables: Object.assign({}
-            , from.environment ? from.environment.variables : {}
-            , from.content && from.content.message ? from.content.message.variables : {}
-            , from.content
-            , from.variables
+          , from.environment ? from.environment.variables : {}
+          , from.content && from.content.message ? from.content.message.variables : {}
+          , from.content
+          , from.variables
+          , { environment }
         )
         });
+      */
       switch (valueType) {
         case 'constant':
+          debug('assign %o constant: %o', name, value);
           _value = value;
           break;
         case 'expression':
-          _value = resolveExpression(value, ctx.variables);
+          _value = resolveExpression(value, ctx);
+          debug('resolveExpression %o variables: %o result: %o', value, ctx, _value);
           break;
         case 'script': {
-          _value = executeScript(script, ctx.variables);
+          debug('executeScript variables: %o result: %o', ctx, _value);
+          _value = executeScript(script, ctx);
+          debug('executeScript %o variables: %o result: %o', value, ctx, _value);
           break;
         }
         case 'map':
-          _value = getMap();
+          _value = getMap(ctx);
           break;
         case 'list':
           _value = getList();
           break;
         default:
-          _value = getNamedValue(ctx);
+          _value = getNamedValue({ ...environment.variables, ...ctx });
+          debug('getNamed: %o value: %o, ctx: %o result: %o', name, value, ctx, _value);
       }
 
       //      debug('get %o value returned %o', debugType, _value);
@@ -100,12 +116,13 @@ function Parameter(parm, environment) {
     }
 
     function save() {
-      debug(`salve <${name}> value`);
-      environment.assignVariables({ [name]: get() });
+      const saveObj = { [name]: get() };
+      debug(`save <${name}> value '${JSON.stringify(saveObj[name])}'`);
+      environment.assignVariables(saveObj);
     }
 
-    function getMap() {
-      if (!activatedEntries) return getNamedValue();
+    function getMap(context) {
+      if (!activatedEntries) return getNamedValue(context);
 
       return activatedEntries.reduce((result, entry) => {
         result[entry.name] = entry.get();
@@ -116,9 +133,11 @@ function Parameter(parm, environment) {
     function getNamedValue(from) {
       from = from || inputContext;
       let result = from[name];
-      if (result === undefined) {
+      /** TODO: Verificare se ha senso... 
+      if (result === undefined && from.variables) {
         result = from.variables[name];
       }
+      */
       return result;
     }
 

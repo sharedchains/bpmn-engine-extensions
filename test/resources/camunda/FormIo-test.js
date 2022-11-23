@@ -1,9 +1,6 @@
 'use strict';
 
-const {camunda} = require('../../../resources');
-const EventEmitter2 = require('eventemitter2');
-const {getEngine} = require('../../helpers/testHelpers');
-const { expect } = require('chai');
+const { testEngine } = require('../../helpers/testHelpers');
 
 describe('Form Io', () => {
   describe('behaviour', () => {
@@ -22,26 +19,32 @@ describe('Form Io', () => {
       </process>
     </definitions>`;
 
-    let engine;
-    beforeEach(() => {
-      engine = getEngine(source, camunda);
-    });
 
-    it('assigns form output to environment if not other io', (done) => {
-      const listener = new EventEmitter2();
-      listener.on('wait', (context, api) => {
-        const task = api.getActivityById(context.id);
-        task.behaviour.io.getForm().setFieldValue('input', 2);
-        engine.logger.debug(task.behaviour.io.getForm().getField('input'));
-        task.getApi().signal();
+    it('assigns form output to environment if not other io', () => {
+      return testEngine(source, env => {
+        const { listener, engine, res, rej } = env;
+        listener.on('wait', (context, api) => {
+          try {
+            const task = api.getActivityById(context.id);
+            task.getForm().setFieldValue('input', 2);
+            engine.logger.debug(task.getForm().getField('input'));
+            task.getApi().signal();
+          } catch (ex) {
+            rej(ex);
+          }
+        });
+        listener.on('activity.end', (context, api) => {
+          try {
+            const task = api.getActivityById(context.id);
+            const output = task.getOutput();
+            expect(output).to.deep.equal({ input: 2 });
+            res();
+          } catch (ex) {
+            rej(ex);
+          }
+        });
+        engine.execute({listener});
       });
-      listener.on('activity.end', (context, api) => {
-        const task = api.getActivityById(context.id);
-        const output = task.behaviour.io.getOutput();
-        expect(output).to.deep.equal({ input: 2 });
-        done();
-      });
-      engine.execute({listener});
     });
   });
 });

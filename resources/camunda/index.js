@@ -8,7 +8,6 @@ const Properties = require('./Properties');
 const Listeners = require('./Listeners');
 const ResultVariableIo = require('./ResultVariableIo');
 const moddleOptions = require('camunda-bpmn-moddle/resources/camunda');
-const Debug = require('debug');
 
 module.exports = {
   extension: Camunda,
@@ -19,16 +18,13 @@ function Camunda(activityElement, parentContext) {
   const behaviour = activityElement.behaviour;
   const { extensionElements, formKey } = behaviour;
   const hasExtValues = extensionElements && extensionElements.values;
-  const { type, id } = activityElement;
-  const debug = Debug(`bpmn-engine:camunda:${type.replace(/bpmn:/, '')}:${id}`);
-  debug(`Camunda(construct) ${activityElement.name || activityElement.id}`);
+  console.log(`Camunda(construct) ${activityElement.id}:${activityElement.name || 'no-name'}`);
 
   const listeners = loadListeners();
   const properties = loadProperties();
   const form = loadForm();
-  const io = loadIo(form);
+  const io = loadIo();
 
-  debug(`Camunda(construct) has ${listeners && listeners.length > 0 ? 'listeners ' : ''}${properties ? 'properties ' : ''}${form ? 'form ' : ''}${io ? 'io ' : ''}`);
   return Activity({
     io,
     properties,
@@ -36,13 +32,13 @@ function Camunda(activityElement, parentContext) {
     form
   }, activityElement, parentContext);
 
-  function loadIo(loadedForm) {
+  function loadIo() {
     if (hasExtValues) {
       const source = extensionElements.values.find((elm) => elm.$type === 'camunda:InputOutput');
-      if (source) return InputOutput(source, parentContext, loadedForm);
+      if (source) return InputOutput(source, parentContext);
     }
     if (activityElement.behaviour.resultVariable) {
-      return ResultVariableIo(activityElement.behaviour, parentContext, loadedForm);
+      return ResultVariableIo(activityElement.behaviour, parentContext);
     }
   }
 

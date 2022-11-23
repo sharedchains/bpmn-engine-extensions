@@ -1,99 +1,133 @@
 'use strict';
 
-const camundaExtensions = require('../../../../resources/camunda');
 const factory = require('../../../helpers/factory');
-const nock = require('nock');
-const {Engine} = require('bpmn-engine');
-const {getDefinition, debug} = require('../../../helpers/testHelpers');
-const request = require('request');
+const {apiUrl, getNockGet, initEngine} = require('../../../helpers/testHelpers');
+const got = require('got');
+const { expect } = require('chai');
 
 
 describe('ServiceTask', () => {
   describe('io', () => {
-    it('uses input parameters', (done) => {
-      nock('http://example.com')
-        .defaultReplyHeaders({
-          'Content-Type': 'application/json'
-        })
-        .get('/test')
-        .reply(200, {
-          data: 4
-        });
+    it('uses input parameters', () => {
 
-      const source = factory.resource('service-task-io.bpmn').toString();
-      getDefinition(source, camundaExtensions).then((definition) => {
-        definition.environment.addService('getRequest', (inputContext, callback) => {
-          const message = inputContext.inputArg.content.message;
-          request.get(message.variables.uri, {json: message.variables.json }, (err, resp, body) => {
-            debug('> request err: %o', err);
-            debug('> request resp: %o', resp);
-            debug('> request body: %o', body);
-            if (err) return callback(err);
-            return callback(null, {
-              statusCode: resp.statusCode,
-              data: body
-            });
+      return new Promise((res, rej) => {
+        getNockGet()
+          .reply(200, {
+            data: 4
           });
-        });
-        definition.environment.assignVariables({apiPath: 'http://example.com/test'});
 
-        const task = definition.getActivityById('serviceTask');
-        task.activate();
+        const source = factory.resource('service-task-io.bpmn').toString();
+        initEngine({
+          source
+          , variables: {
+            apiUrl
+          }
+          , services: {
+            getRequest: ({ content }, callback) => {
+              // here we check input variables are correctly set
+              expect(content.input).to.be.ok;
+              expect(content.input).to.deep.equal({ uri: 'http://example.com/api', json: true } );
+              got({
+                url: content.input.uri,
+                responseType: ( content.input.json ? 'json' : null )
+              }).then(response => {
+                callback(null,
+                  { statusCode: response.statusCode }
+                  , response.body
+                );
+              }).catch(err => {
+                rej(err);
+              });
+            }
+          }
+        }).then(({engine, listener}) => {
 
-        task.once('activity.start', () => {
-          debug('> input: %o', task.behaviour.getInput());
-          expect(task.behaviour.getInput()).to.eql({ uri: 'http://example.com/test', json: true });
-        });
-
-        task.once('activity.end', () => {
-          const output = task.behaviour.getOutput();
-          expect(Object.keys(output)).to.have.same.members(['statusCode', 'body']);
-          expect(output.statusCode).to.equal(200);
-          expect(output.body).to.eql({ data: 4});
-          done();
-        });
-
-        task.inbound[0].take();
-      }).catch(done);
-    });
-
-    it('returns mapped output', (done) => {
-      const source = factory.resource('service-task-io-types.bpmn').toString();
-      getDefinition(source, camundaExtensions).then((definition) => {
-        definition.environment.assignVariables({
-          apiPath: 'http://example-2.com',
-          input: 2,
-        });
-        definition.environment.addService('get', (arg, next) => {
-          next(null, {
-            statusCode: 200,
-            pathname: '/ignore'
-          }, {
-            data: arg.input
-          });
-        });
-
-        const task = definition.getChildActivityById('serviceTask');
-        task.once('end', (_, executionContext) => {
-          const output = executionContext.getOutput();
-          expect(output).to.eql({
-            statusCode: 200,
-            body: {
-              data: 2
+          listener.on('activity.start', ({id, owner}) => {
+            if (id === 'serviceTask') {
+              try {
+                expect(owner.getInput()).to.eql({ uri: apiUrl, json: true });
+              } catch (ex) {
+                rej(ex);
+              }
             }
           });
-          done();
+
+          listener.on('activity.end', ({ id, owner }) => {
+            try {
+              if (id === 'serviceTask') {
+                const output = owner.getOutput();
+                expect(Object.keys(output)).to.have.same.members(['statusCode', 'body']);
+                expect(output.statusCode).to.equal(200);
+                expect(output.body).to.eql({ data: 4});
+                res();
+              }
+            } catch (ex) {
+              rej(ex);
+            }
+          });
+
+          engine.execute({ listener }, (err) => {
+            if (err) rej(err);
+            rej('SHOULD NOT END');
+          });
         });
 
-        task.run();
-      }).catch(done);
+      });
+
     });
 
-    it('returns input context if no input parameters', (done) => {
+    it('returns mapped output', () => {
+      return new Promise((res, rej) => {
+        return initEngine({
+          source: factory.resource('service-task-io-types.bpmn')
+          , variables: {
+            apiPath: 'http://example-2.com',
+            input: 2
+          }
+          , services: {
+            get: ({variables}, next) => {
+              next(null, [ {
+                statusCode: 200
+                , pathname: '/ignore'
+              }
+              , { data: variables.input } ]);
+            }
+          }
+        }).then(({ engine, listener }) => {
+
+          listener.on('activity.wait', (api) => {
+            api.signal();
+          });
+          listener.on('activity.end', ({id, owner}) => {
+            if (id === 'serviceTask') {
+              try {
+                const output = owner.getOutput();
+                expect(output).to.eql({
+                  statusCode: 200,
+                  body: {
+                    data: 2
+                  }
+                });
+                res();
+              } catch (ex) {
+                rej(ex);
+              }
+            }
+          });
+
+          engine.execute({ listener }, (err) => {
+            if (err) rej(err);
+            rej('SHOULD NOT BE HERE');
+          });
+        });
+      });
+    });
+
+    it('returns input context if no input parameters', () => {
       const source = `
       <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
         <process id="theProcess" isExecutable="true">
-          <serviceTask id="ping" name="ping" implementation="\${services.ping}">
+          <serviceTask id="ping" name="ping" implementation="\${environment.services.ping}">
             <extensionElements>
               <camunda:inputOutput>
                 <camunda:outputParameter name="pinged" value="\${true}" />
@@ -103,49 +137,75 @@ describe('ServiceTask', () => {
         </process>
       </definitions>`;
 
-      getDefinition(source, camundaExtensions).then((definition) => {
-        definition.environment.assignVariables({
-          apiPath: 'http://example-2.com',
-          input: 2,
-        });
-        definition.environment.addService('ping', (arg, next) => {
-          expect(arg).to.have.property('variables');
-          next();
-        });
+      return new Promise((res, rej) => {
 
-        const task = definition.getChildActivityById('ping');
-        task.once('end', (activityApi, executionContext) => {
-          const output = executionContext.getOutput();
-          expect(output).to.eql({
-            pinged: true
+        return initEngine(source).then(({ definition }) => {
+          definition.environment.assignVariables({
+            apiPath: 'http://example-2.com',
+            input: 2,
           });
-          done();
-        });
+          definition.environment.addService('ping', (arg, next) => {
+            try {
+              // input is not set in arg.content
+              expect(arg.content).to.have.property('input');
+              expect(arg.content.inptu).to.be.undefined;
+              const { variables } = arg.environment;
+              expect(variables).to.have.property('apiPath');
+              expect(variables).to.have.property('input');
+              next();
+            } catch (ex) {
+              rej(ex);
+            }
+          });
 
-        task.run();
-      }).catch(done);
+          const task = definition.getActivityById('ping');
+          task.once('end', (activityApi) => {
+            try {
+              const output = activityApi.owner.getOutput();
+              expect(output).to.eql({
+                pinged: true
+              });
+              res();
+            } catch (ex) {
+              rej(ex);
+            }
+          });
+
+          task.run();
+        });
+      });
     });
   });
 
   describe('service', () => {
-    it('resolves service from property named "service" (deprecated)', (done) => {
-      const source = factory.resource('issue-7.bpmn');
-      const engine = Engine({
-        source,
-        extensions
-      });
+    it('resolves service from property named "service"', () => {
+      return new Promise((res, rej) => {
+        initEngine({
+          source: factory.resource('issue-7.bpmn')
+        }).then(({engine, listener}) => {
 
-      engine.execute({
-        services: {
-          myCustomService: (executionContext, serviceCallback) => {
-            serviceCallback(null, 'success');
-          }
-        }
-      });
-
-      engine.once('end', (execution) => {
-        expect(execution.getOutput().taskInput.Task_0kxsx8j).to.eql(['success']);
-        done();
+          listener.on('activity.execution.completed', ({ content, id }) => {
+            try {
+              if (id === 'Task_0kxsx8j') {
+                expect(content.output).to.eql(['success']);
+                res();
+              }
+            } catch (ex) {
+              rej(ex);
+            }
+          });
+          engine.execute({
+            listener
+            , services: {
+              myCustomService: (_message, next) => {
+                next(null, 'success');
+              }
+            }
+          }, (err) => {
+            if (err) rej(err);
+            rej('should not be here');
+          });
+        });
       });
     });
   });

@@ -1,13 +1,19 @@
 'use strict';
 
-const camundaExtensions = require('../../../resources/camunda');
+const { expect } = require('chai');
+const { uniqueID } = require('mocha/lib/utils');
 const factory = require('../../helpers/factory');
-const {getDefinition} = require('../../helpers/testHelpers');
+const { initEngine } = require('../../helpers/testHelpers');
 
 describe('Service expression', () => {
+  let engine;
   let definition;
-  beforeEach(async () => {
-    definition = await getDefinition(factory.resource('service-task.bpmn'), camundaExtensions);
+  beforeEach((done) => {
+    initEngine(factory.resource('service-task.bpmn')).then(env => {
+      definition = env.definition;
+      engine = env.engine;
+      done();
+    });
   });
 
   it('executes service on taken inbound', (done) => {
@@ -18,8 +24,11 @@ describe('Service expression', () => {
     const task = definition.getActivityById('serviceTask');
     task.activate();
 
-    task.once('end', () => {
-      expect(task.behaviour.io.getOutput()).to.eql([true]);
+    task.broker.subscribe('execution', 'execute.completed', null, (eventName, message) => {
+      expect(message.content.output).to.deep.eql([true]);
+    }, { noAck: true, consumerTag: uniqueID(), durable: true});
+    task.once('end', (api) => {
+      expect(api.content.output).to.deep.eql([true]);
       done();
     });
 
@@ -28,27 +37,76 @@ describe('Service expression', () => {
 
   it('expression function is called with input context', (done) => {
     definition.environment.addService('postMessage', (message, callback) => {
-      expect(message).to.have.property('output');
+      definition.logger.debug(message);
       expect(message).to.have.property('variables');
-      expect(message).to.have.property('services');
+//      expect(message).to.have.property('output');
+//      expect(message).to.have.property('services');
       callback();
     });
 
-    definition.execute(done);
+    engine.execute({}, done);
   });
 
   it('error in callback caught by bound error event', (done) => {
     definition.environment.addService('postMessage', (message, callback) => {
-      callback(new Error('Failed'));
+      callback(new Error('postMessage failed'));
     });
 
     const task = definition.getActivityById('serviceTask');
     const boundEvent = definition.getActivityById('errorEvent');
+    const endInVain = definition.getActivityById('endInVain');
+    endInVain.activate();
     boundEvent.activate();
     task.activate();
 
-    boundEvent.once('end', (event) => {
-      expect(event.getState()).to.have.property('taken', true);
+    task.broker.subscribe('execution', 'execution.error', null, (eventName, message) => {
+      const { state, error } = message.content;
+      const { type, description } = error;
+      expect(state).to.equal('error');
+      expect(type).to.equal('ActivityError');
+      expect(description).to.equal('postMessage failed');
+    }, { noAck: true, consumerTag: uniqueID(), durable: true});
+    boundEvent.broker.subscribe('execution', 'execute.completed', null, (eventName, message) => {
+      const {id, state, output} = message.content;
+      const {type, description} = output;
+      expect(id).to.equal('errorEvent');
+      expect(state).to.equal('catch');
+      expect(type).to.equal('ActivityError');
+      expect(description).to.equal('postMessage failed');
+    }, { noAck: true, consumerTag: uniqueID(), durable: true});
+    endInVain.once('start', () => {
+      done();
+    });
+
+    task.inbound[0].take();
+  });
+
+  it('timeout error in callback', (done) => {
+    definition.environment.addService('postMessage', (message, callback) => {
+      setTimeout(() => {
+        callback(null, 'Post OK');
+      }, 1000);
+    });
+
+    const task = definition.getActivityById('serviceTask');
+    const boundEvent = definition.getActivityById('errorEvent');
+    const endInVain = definition.getActivityById('endInVain');
+    const timerEvent = definition.getActivityById('timerEvent');
+    const timeoutEnd = definition.getActivityById('timeoutEnd');
+    endInVain.activate();
+    boundEvent.activate();
+    task.activate();
+    timeoutEnd.activate();
+    timerEvent.activate();
+
+    task.broker.subscribe('execution', 'execute.timer', null, (eventName, message) => {
+      expect(message.content.state).to.equal('timer');
+    }, { noAck: true, consumerTag: uniqueID(), durable: true});
+
+    timerEvent.broker.subscribe('execution', 'execute.completed', null, (eventName, message) => {
+      expect(message.content.state).to.equal('timeout');
+    }, { noAck: true, consumerTag: uniqueID(), durable: true});
+    timeoutEnd.once('start', () => {
       done();
     });
 

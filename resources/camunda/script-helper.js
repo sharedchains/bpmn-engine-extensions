@@ -15,10 +15,15 @@ function isJavascript(scriptType) {
 }
 
 function parse(filename, scriptBody) {
-  return new vm.Script(scriptBody, {
-    filename: filename,
-    displayErrors: true
-  });
+  try {
+    return new vm.Script(scriptBody, {
+      filename: filename,
+      displayErrors: true
+    });
+  } catch (ex) {
+    console.error(ex);
+    throw new Error(ex);
+  }
 }
 
 function execute(script, context, callback) {
@@ -29,7 +34,12 @@ function execute(script, context, callback) {
   }
 
   const vmContext = new vm.createContext(executionContext);
-  return script.runInContext(vmContext);
+  try {
+    return script.runInContext(vmContext);
+  } catch (ex) {
+    console.error(ex);
+    throw ex;
+  }
 }
 
 function executeWithMessage(script, context, message, callback) {

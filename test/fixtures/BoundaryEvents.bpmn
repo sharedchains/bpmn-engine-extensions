@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_1nsoax9" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="4.11.1" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.15.0">
+  <bpmn:process id="MrProcess" name="mr process" isExecutable="true">
+    <bpmn:startEvent id="StartEvent" name="start event">
+      <bpmn:outgoing>StartFlow</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="StartFlow" sourceRef="StartEvent" targetRef="RemoteCall" />
+    <bpmn:endEvent id="SuccessCallTermination" name="got response!">
+      <bpmn:incoming>GotResponseFlow</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="GotResponseFlow" sourceRef="RemoteCall" targetRef="SuccessCallTermination" />
+    <bpmn:boundaryEvent id="GenericError" name="on generic error" attachedToRef="RemoteCall">
+      <bpmn:outgoing>GenericErrorFlow</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_0xgq5r3" errorRef="Error_167ddcz" camunda:errorCodeVariable="errorCode" camunda:errorMessageVariable="errorMessage" />
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="Error5xx" name="on server error" attachedToRef="RemoteCall">
+      <bpmn:outgoing>ServerErrorFlow</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="ErrorEventDefinition_1mjs87o" errorRef="Error_0wgz9ie" camunda:errorCodeVariable="xErrorCode" camunda:errorMessageVariable="xErrorMessage" />
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="ServerErrorFlow" sourceRef="Error5xx" targetRef="Error500Termination" />
+    <bpmn:sequenceFlow id="GenericErrorFlow" sourceRef="GenericError" targetRef="GenericErrorTermination" />
+    <bpmn:endEvent id="GenericErrorTermination" name="got generic error!">
+      <bpmn:incoming>GenericErrorFlow</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TerminateEventDefinition_0n0213j" />
+    </bpmn:endEvent>
+    <bpmn:endEvent id="Error500Termination" name="got error 500!">
+      <bpmn:incoming>ServerErrorFlow</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TerminateEventDefinition_0qnyndf" />
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="RemoteCall" name="remote call task">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="apiUrl">${environment.variables.apiUrl}</camunda:inputParameter>
+          <camunda:outputParameter name="body" />
+          <camunda:outputParameter name="statusCode">${response.statusCode}</camunda:outputParameter>
+        </camunda:inputOutput>
+        <camunda:connector>
+          <camunda:inputOutput>
+            <camunda:inputParameter name="options">
+              <camunda:map>
+                <camunda:entry key="url">${apiUrl}</camunda:entry>
+                <camunda:entry key="json">${true}</camunda:entry>
+              </camunda:map>
+            </camunda:inputParameter>
+            <camunda:outputParameter name="body">
+              <camunda:map />
+            </camunda:outputParameter>
+            <camunda:outputParameter name="response">
+              <camunda:map />
+            </camunda:outputParameter>
+          </camunda:inputOutput>
+          <camunda:connectorId>get</camunda:connectorId>
+        </camunda:connector>
+      </bpmn:extensionElements>
+      <bpmn:incoming>StartFlow</bpmn:incoming>
+      <bpmn:outgoing>GotResponseFlow</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:boundaryEvent id="TimeoutError" name="timeout happened" attachedToRef="RemoteCall">
+      <bpmn:outgoing>TimeoutErrorFlow</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="TimerEventDefinition_17wwnn0">
+        <bpmn:timeDuration xsi:type="bpmn:tFormalExpression">${environment.variables.boundaryTimeout}</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="TimeoutErrorFlow" sourceRef="TimeoutError" targetRef="TimeoutErrorTermination" />
+    <bpmn:endEvent id="TimeoutErrorTermination" name="timeout happened!">
+      <bpmn:incoming>TimeoutErrorFlow</bpmn:incoming>
+      <bpmn:terminateEventDefinition id="TerminateEventDefinition_0ymkutm" />
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:error id="Error_0wgz9ie" name="Error5xx" errorCode="ERR_NON_2XX_3XX_RESPONSE" camunda:errorMessage="Internal server error" />
+  <bpmn:error id="Error_167ddcz" name="GenericError" errorCode="ERR_GOT_REQUEST_ERROR" camunda:errorMessage="Generic Error" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="MrProcess">
+      <bpmndi:BPMNEdge id="Flow_1kid67n_di" bpmnElement="TimeoutErrorFlow">
+        <di:waypoint x="340" y="119" />
+        <di:waypoint x="340" y="90" />
+        <di:waypoint x="442" y="90" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1kt9xrv_di" bpmnElement="GenericErrorFlow">
+        <di:waypoint x="300" y="235" />
+        <di:waypoint x="300" y="340" />
+        <di:waypoint x="442" y="340" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13tu0hk_di" bpmnElement="ServerErrorFlow">
+        <di:waypoint x="340" y="235" />
+        <di:waypoint x="340" y="260" />
+        <di:waypoint x="442" y="260" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0ix0vv5_di" bpmnElement="GotResponseFlow">
+        <di:waypoint x="370" y="177" />
+        <di:waypoint x="442" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1vi7r2n_di" bpmnElement="StartFlow">
+        <di:waypoint x="208" y="177" />
+        <di:waypoint x="270" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent">
+        <dc:Bounds x="172" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="165" y="202" width="52" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1ayicyh_di" bpmnElement="SuccessCallTermination">
+        <dc:Bounds x="442" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="427" y="202" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0jfwago_di" bpmnElement="GenericErrorTermination">
+        <dc:Bounds x="442" y="322" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="419" y="365" width="84" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0s2x5qu_di" bpmnElement="Error500Termination">
+        <dc:Bounds x="442" y="242" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="428" y="285" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_05w5blt_di" bpmnElement="RemoteCall">
+        <dc:Bounds x="270" y="137" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0ow0zra_di" bpmnElement="TimeoutErrorTermination">
+        <dc:Bounds x="442" y="72" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="435" y="115" width="52" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0ucf7tx_di" bpmnElement="TimeoutError">
+        <dc:Bounds x="322" y="119" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="235" y="113" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0mqoiat_di" bpmnElement="Error5xx">
+        <dc:Bounds x="322" y="199" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="343" y="233" width="73" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0qhesmv_di" bpmnElement="GenericError">
+        <dc:Bounds x="282" y="199" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="211" y="233" width="78" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
