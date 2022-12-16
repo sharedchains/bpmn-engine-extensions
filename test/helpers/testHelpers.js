@@ -62,7 +62,7 @@ function getEngine(options = {}) {
   if (typeof options === 'string' || options instanceof String) {
     options = { source: options };
   }
-  let extensions = { camunda: camunda.extension };
+  let extensions = options.noCamunda ? {} : { camunda: camunda.extension };
   if (options && options.extensions) {
     extensions = Object.assign({}, extensions, options.extensions );
     delete options.extensions;

@@ -197,27 +197,28 @@ describe('Error handling on save and resume', () => {
   <error id="ErrorOnRequest" name="requestError" errorCode="code000" />
 </definitions>
 `;
+  const services = {
+    statusCodeOk: (vars) => {
+      return (vars.responseCode && vars.responseCode === 200) || vars.exit;
+    }
+    , makeRequestService: (message, callback) => {
+      setTimeout(() =>{
+        callback({ name: 'requestError'
+          , description: 'Error happened'
+          , code: 'code000'
+        }, null);
+      }, 1);
+    }
+  };
   it('does not handle the error on resume', () => {
-    const services = {
-      statusCodeOk: () => {
-        return false;
-      }
-      , makeRequestService: (message, callback) => {
-        setTimeout(() =>{
-          callback({ name: 'requestError'
-            , description: 'Error happened'
-            , code: 'code000'
-          }, null);
-        }, 1);
-      }
-    };
     return new Promise((res, rej) => {
       const engine = new Engine({
         name: 'test-engine'
         , services
         , source
         , variables: {
-          timeout: 'PT1S'
+          exit: false
+          , timeout: 'PT1S'
         }});
 
       let state;
@@ -254,11 +255,10 @@ describe('Error handling on save and resume', () => {
           if (api.id === 'waitForSignalTask') {
             res();
           }
-          rej('SHOULD WAIT ONLY ON waitForSignalTask');
         });
         listener2.on('process.error', () => {
-          // TODO: fix this
-          res('SHOULD NOT HAPPEN!');
+          // issue#31 on bpmn-elements
+          rej('SHOULD NOT HAPPEN!');
         });
         const engine2 = new Engine({
           source, services
@@ -270,24 +270,14 @@ describe('Error handling on save and resume', () => {
   });
 
   it('handles the error on resume', () => {
-    const services = {
-      statusCodeOk: () => {
-        return false;
-      }
-      , makeRequestService: (message, callback) => {
-        callback({ name: 'requestError'
-          , description: 'Error happened'
-          , code: 'code000'
-        }, null);
-      }
-    };
     return new Promise((res, rej) => {
       const engine = new Engine({
         name: 'test-engine'
         , services
         , source
         , variables: {
-          timeout: 'PT1S'
+          exit: false
+          , timeout: 'PT1S'
         }
       });
 
@@ -307,6 +297,7 @@ describe('Error handling on save and resume', () => {
       });
       listener.on('activity.wait', (api) => {
         if (api.id === 'waitForSignalTask') {
+          api.environment.assignVariables({ exit: true});
           engine.getState().then(_state => {
             state = _state;
             dumpQueue(state);
@@ -321,18 +312,24 @@ describe('Error handling on save and resume', () => {
         const listener2 = new EventEmitter2();
         listener2.on('activity.wait', (api) => {
           if (api.id === 'waitForSignalTask') {
-            res();
+            api.signal({ exit: true });
           }
-          rej('SHOULD WAIT ONLY ON waitForSignalTask');
         });
         listener2.on('process.error', () => {
           rej('SHOULD NOT HAPPEN!');
+        });
+        listener2.on('process.end', (api) => {
+          expect(api.environment.variables.exit).to.be.true;
+          res();
         });
         const engine2 = new Engine({
           source, services
         }).recover(state);
 
-        engine2.resume({ listener: listener2});
+        engine2.resume({ listener: listener2}, (err2) => {
+          if (err2) rej(err2);
+          // ok..
+        });
       });
     });
   });

@@ -38,7 +38,7 @@
     "babel-preset-env": "^1.6.1",
     "babel-preset-node8": "^1.2.0",
     "babel-register": "^6.26.0",
-    "bpmn-engine": "^15.0.0",
+    "bpmn-engine": "^15.1.2",
     "chai": "^4.1.2",
     "eslint": "^8.3.0",
     "markdown-toc": "^1.2.0",
@@ -49,7 +49,7 @@
     "request": "^2.83.0"
   },
   "dependencies": {
-    "bpmn-elements": "^8.2.0",
+    "bpmn-elements": "^8.2.4",
     "camunda-bpmn-moddle": "^6.1.1",
     "debug": "^4.3.2",
     "eventemitter2": "^6.4.9",

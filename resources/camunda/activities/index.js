@@ -56,9 +56,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   if (activityElement.type !== 'bpmn:Process') {
     activityElement._getState = activityElement.getState;
     activityElement.getState = () => {
-      const state = activityElement._getState();
-      console.error('%o -> STATE: %o', activityElement.id, state);
-      return state;
+      return activityElement._getState();
     };
     activityElement._recover = activityElement.recover;
     activityElement.recover = (state) => {
@@ -137,7 +135,8 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
         console.log('BASE- iospec: %o', message.content.ioSpecification);
       }
       if (listeners && undefined !== listeners) {
-        listeners.activate(message, activityElement);
+        logger.debug('activate listeners');
+        listeners.activate(activityElement, message);
       }
       if (io && io.activate) {
         logger.debug('activate io');

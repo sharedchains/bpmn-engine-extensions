@@ -97,6 +97,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
         output = aggregate;
       }
       behaviour.io.setResult(output);
+      console.log('>>>>> IO.SAVE!');
       behaviour.io.save();
       environment.output[id] = behaviour.io.getOutput();
     }

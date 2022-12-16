@@ -40,7 +40,7 @@ describe('Parameter', () => {
         $type: 'camunda:inputParameter',
         name: 'listing',
         definition: {
-          $type: 'camunda:list'
+          $type: 'camunda:named',
         }
       }, engine.environment);
 

@@ -965,22 +965,16 @@ describe('Camunda extension', () => {
           }).recover(state);
 
           listener2.once('definition.error', ({content}) => {
-            // TODO: FIXTHIS.. does not resume
-            try {
-              expect(content.error).to.be.ok;
-              expect(content.error.description).to.be.equal(reqErrorMessage);
-              expect(content.error.code).to.be.equal(reqErrorCode);
-            } catch (ex) {
-              rej(ex);
-            }
+            // old issue#31 of bpmn-elements
+            rej(content.error);
           });
 
           listener2.once('process.end', () => {
-            rej('ACTUALLY THE ERROR SHOULD NOT BE RAISED...');
+            res();
           });
           engine2.resume({listener: listener2}, (resumeError) => {
             // TODO: FIXTHIS.. does not resume
-            if (resumeError) res(resumeError);
+            if (resumeError) rej(resumeError);
           });
         });
       });

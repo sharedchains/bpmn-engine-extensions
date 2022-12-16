@@ -99,7 +99,7 @@ module.exports = function Listener(listener, parentContext)
     debug(`${parentApi.id} has jsScript`);
       const timers = environment.timers.register(parentApi);
       return jsScript.runInNewContext({
-          next: (...args) => { callback(args); }
+          next: (...args) => { if(callback) callback(args); }
           , ...fields
           , ...parentApi
           , ...timers

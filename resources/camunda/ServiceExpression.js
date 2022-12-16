@@ -32,14 +32,14 @@ module.exports = function ServiceExpression(activityElement, _) {
       , inputs
       , { environment: activityElement.environment }
     );
-      const serviceFn = environment.expressions.resolveExpression(expression, from);
-      if (typeof serviceFn !== 'function') return callback(new Error(`Expression ${expression} did not resolve to a function`));
+    const serviceFn = environment.expressions.resolveExpression(expression, from);
+    if (typeof serviceFn !== 'function') return callback(new Error(`Expression ${expression} did not resolve to a function`));
 
-      const inputArgs = Object.assign({}, inputArg.content
-        , inputs
-        , { variables: environment.variables } );
-      serviceFn.call(activityElement, inputArgs, (err, ...args) => {
-        callback(err, args);
-      });
-    }
+    const inputArgs = Object.assign({}, inputArg.content
+      , inputs
+      , { variables: environment.variables } );
+    serviceFn.call(activityElement, inputArgs, (err, ...args) => {
+      callback(err, args);
+    });
+  }
 };

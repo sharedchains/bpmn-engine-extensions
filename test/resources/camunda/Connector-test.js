@@ -189,6 +189,7 @@ describe('Connector', () => {
         expect(executionContext.id, 'sendEmail_1'); // paranoiacheck
         expect(task.behaviour.io).to.be.ok;
         taskInput = task.behaviour.io.getInput();
+        console.log('START: %o', taskInput);
       });
       task.once('end', () => {
         expect(serviceInput).to.equal('lisa@example.com');

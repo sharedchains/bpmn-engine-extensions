@@ -38,7 +38,6 @@ function Parameter(parm, environment) {
   function activate(inputContext) {
     const activatedEntries = activateEntries();
     let resultValue;
-    const context = Object.assign({}, inputContext, { environment });
 
     return {
       name,
@@ -60,7 +59,8 @@ function Parameter(parm, environment) {
     }
 
     function resolve(from = {}) {
-      return internalGet(from);
+      resultValue = internalGet(from);
+      return resultValue;
     }
 
     function internalGet(from = {}) {
@@ -73,18 +73,9 @@ function Parameter(parm, environment) {
           , loopCardinality: inputContext.content.loopCardinality
         };
       }
-      const ctx = { ...loopArgs, ...inputContext, ...from, environment };
-      /*
-      const ctx = Object.assign({}, from
-        , { variables: Object.assign({}
-          , from.environment ? from.environment.variables : {}
-          , from.content && from.content.message ? from.content.message.variables : {}
-          , from.content
-          , from.variables
-          , { environment }
-        )
-        });
-      */
+      console.log('(parameter)========= <%o>internalGet(from:%o)', name, from);
+      const ctx = { ...loopArgs, ...environment.variables, ...inputContext, ...from, environment };
+      console.log('(parameter)========= <%o>internalGet(ctx:%o)', name, ctx);
       switch (valueType) {
         case 'constant':
           debug('assign %o constant: %o', name, value);
@@ -107,7 +98,7 @@ function Parameter(parm, environment) {
           _value = getList();
           break;
         default:
-          _value = getNamedValue({ ...environment.variables, ...ctx });
+          _value = getNamedValue(ctx);
           debug('getNamed: %o value: %o, ctx: %o result: %o', name, value, ctx, _value);
       }
 
@@ -125,13 +116,14 @@ function Parameter(parm, environment) {
       if (!activatedEntries) return getNamedValue(context);
 
       return activatedEntries.reduce((result, entry) => {
-        result[entry.name] = entry.get();
+        result[entry.name] = entry.resolve(context);
         return result;
       }, {});
     }
 
-    function getNamedValue(from) {
+    function getNamedValue(from = {}) {
       from = from || inputContext;
+      console.log('getNamedValue <%o> CTX: %o', name, from);
       let result = from[name];
       /** TODO: Verificare se ha senso... 
       if (result === undefined && from.variables) {

@@ -1,22 +1,19 @@
 'use strict';
 
-const Debug = require('debug');
 const Connector = require('../Connector');
 const ResultVariableIo = require('../ResultVariableIo');
 const ServiceExpression = require('../ServiceExpression');
 const ServiceProperty = require('../ServiceProperty');
+const Fields = require('../Fields');
 
 module.exports = function IntermediateEvent(extensions, activityElement, parentContext) {
   const isThrow = activityElement.isThrowing;
-  const debug = Debug('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id);
-  debug('enter : %o', activityElement);
+  const debug = activityElement.environment.Logger('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id).debug;
   const {io, properties, listeners } = extensions;
   const {resultVariable} = activityElement.behaviour;
   let connectorExecutor = null;
+  let messageTag;
   debug('eventType: %o', (isThrow ? 'THROW' : 'CATCH'));
-  debug('io: %o', io);
-  debug('activityElement: %o', activityElement);
-  debug('extensions: %o', extensions);
 
   if (!io && resultVariable) {
     extensions.io = ResultVariableIo(activityElement, parentContext);
@@ -29,16 +26,20 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
   activityElement.behaviour.Service = executeConnector;
   extensions.activate = (message) => {
     debug('>>> activate %o', message);
-    debug('>>> activate-activity: %o', activityElement);
-    debug('>>> parent-context: %o', parentContext);
-    debug('>>> hasConnector: %o', parentContext);
     if (listeners && undefined !== listeners) {
-      listeners.activate(message, activityElement);
+      listeners.activate(activityElement, message);
     }
     if (extensions.service && extensions.service.activate) {
       connectorExecutor = extensions.service.activate(message
         , { isLoopContext: message.isMultiInstance, index: 0 });
     }
+
+    messageTag = `_event-message-${message.content.executionId}`;
+    activityElement.broker.subscribeTmp('event', 'activity.message'
+      , (eventName, context) => {
+        context.content.message.fields = getFields();
+      }
+      , { noAck: true, priority: 1000, consumerTag: messageTag});
   };
 
   extensions.deactivate = (message) => {
@@ -46,10 +47,18 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
     if (listeners && undefined !== listeners) {
       listeners.deactivate(message, activityElement);
     }
+    activityElement.broker.cancel(messageTag);
   };
 
-  debug('(init) returned : %o', extensions);
   return extensions;
+
+  function getFields() {
+    const eventDefinition = activityElement.behaviour.eventDefinitions.find(def => def.type === 'bpmn:MessageEventDefinition');
+    const { extensionElements } = eventDefinition.behaviour;
+    if (!extensionElements || !extensionElements.values) return;
+
+    return Fields(extensionElements.values, activityElement.environment).get();
+  }
 
   function loadService(evntDefinitions) {
     const hasExtValues = evntDefinitions && evntDefinitions.length > 0;
@@ -82,6 +91,7 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
         , parentContext
         , properties);
     }
+
   }
 
   function executeConnector(...args) {
@@ -89,4 +99,5 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
     debug('has connector? %o', (connectorExecutor ? connectorExecutor : 'nada'));
     if (connectorExecutor) return connectorExecutor;
   }
+
 };

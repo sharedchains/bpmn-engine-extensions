@@ -79,6 +79,7 @@ function Connector(source, activityElement) {
           ...this.activityElement.environment.variables
           , ...inputArgs
         }
+        , inputArgs
         , loopArgs
         , message
       });
@@ -164,6 +165,8 @@ function Connector(source, activityElement) {
       if (result === null) return null;
 
       const resolveResult = getNormalizedResult(result);
+      console.log('+++++++ getOutput resolveResult: %o', resolveResult);
+      console.log('+++++++ getOutput _outputParameters: %o', _outputParameters);
       if (!_outputParameters) return resolveResult;
 
       const outputParms = this.getOutputParameters(this.isLoopContext);
@@ -176,10 +179,12 @@ function Connector(source, activityElement) {
       }
       const reduced = {};
       console.log('+++++++ connector getOutput params: %o', outputParms);
+      console.log('+++++++ getOutput resolveResult: %o', resolveResult);
       outputParms.reduce((_output, parm, idx) => {
-        debug('getOutput - reduce - parm: %o  idx: %o - value: %o', parm, idx, parm.get());
         reduced[parm.name] = parm.resolve(resolveResult);
-        parm.save();
+//        this.environment.assignVariables(parm.name, reduced[parm.name]);
+        debug('getOutput - reduce - parm: %o  idx: %o - value: %o', parm, idx, reduced[parm.name]);
+//        parm.save();
       }, {});
       console.log('+++++++ connector getOutput reduced: %o', reduced);
       return reduced;
