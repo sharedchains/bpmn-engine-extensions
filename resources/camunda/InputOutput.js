@@ -3,10 +3,10 @@
 const getNormalizedResult = require('./getNormalizedResult');
 const Parameter = require('./Parameter');
 
-module.exports = function InputOutput(activity, parentContext) {
-  const { id, environment } = parentContext;
-  const { $type: type, inputParameters: _input, outputParameters: _output } = activity || {};
-  const debug = parentContext.environment.Logger(`${activity.id || activity.name}:io:${type}`).debug;
+module.exports = function InputOutput(source, activityElement) {
+  const { id, environment } = activityElement;
+  const { $type: type, inputParameters: _input, outputParameters: _output } = source || {};
+  const debug = activityElement.environment.Logger(`${activityElement.id || activityElement.name}:${type}`).debug;
 
   const inputParameters = _input && _input.map((parm) => Parameter(parm, environment));
   const outputParameters = _output && _output.map((parm) => Parameter(parm, environment));
@@ -53,7 +53,11 @@ module.exports = function InputOutput(activity, parentContext) {
       const result = internalGetInput(true);
       if (!result && returnInputContext) {
         debug('getInput: (inputContext) %o', inputContext);
-        return inputContext;
+        let filter = { ...inputContext };
+        delete filter.fields;
+        delete filter.content;
+        delete filter.properties;
+        return filter;
       }
       debug('getInput: (internalGet) %o', (result || {}));
       return result || {};

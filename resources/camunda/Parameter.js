@@ -35,10 +35,22 @@ function Parameter(parm, environment) {
     activate
   };
 
-  function activate(inputContext) {
+  function activate(context) {
+    let loopArgs = {};
+    if (context && context.content && context.content.isMultiInstance) {
+      loopArgs = {
+        item: context.content.item
+        , index: context.content.index
+        , loopCardinality: context.content.loopCardinality
+      };
+    }
+    let inputContext = { ...context };
+    delete inputContext.fields;
+    delete inputContext.properties;
+    delete inputContext.content;
+
     const activatedEntries = activateEntries();
     let resultValue;
-
     return {
       name,
       valueType,
@@ -65,17 +77,9 @@ function Parameter(parm, environment) {
 
     function internalGet(from = {}) {
       let _value = null;
-      let loopArgs = {};
-      if (inputContext && inputContext.content && inputContext.content.isMultiInstance) {
-        loopArgs = {
-          item: inputContext.content.item
-          , index: inputContext.content.index
-          , loopCardinality: inputContext.content.loopCardinality
-        };
-      }
       console.log('(parameter)========= <%o>internalGet(from:%o)', name, from);
       const ctx = { ...loopArgs, ...environment.variables, ...inputContext, ...from, environment };
-      console.log('(parameter)========= <%o>internalGet(ctx:%o)', name, ctx);
+//      console.log('(parameter)========= <%o>internalGet(ctx:%o)', name, ctx);
       switch (valueType) {
         case 'constant':
           debug('assign %o constant: %o', name, value);
@@ -123,7 +127,7 @@ function Parameter(parm, environment) {
 
     function getNamedValue(from = {}) {
       from = from || inputContext;
-      console.log('getNamedValue <%o> CTX: %o', name, from);
+//      console.log('getNamedValue <%o> CTX: %o', name, from);
       let result = from[name];
       /** TODO: Verificare se ha senso... 
       if (result === undefined && from.variables) {

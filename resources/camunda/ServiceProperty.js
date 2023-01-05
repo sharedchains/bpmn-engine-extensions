@@ -25,7 +25,7 @@ module.exports = function ServiceProperty(activityElement
     for (const name in properties.getAll()) {
       propValues[name] = properties.getProperty(name).activate(inputContext);
     }
-    const serviceProperty = propValues['service'];
+    const serviceProperty = propValues.service;
     const serviceFn = getServiceFn(serviceProperty);
     debug('serviceFn value=%o', serviceFn);
 

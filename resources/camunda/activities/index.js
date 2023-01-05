@@ -6,11 +6,16 @@ const ServiceTask = require('./ServiceTask');
 const CallActivity = require('./CallActivity');
 const IntermediateEvent = require('./IntermediateEvent');
 const ScriptTask = require('./ScriptTask');
+const Connector = require('../Connector');
+const ServiceExpression = require('../ServiceExpression');
+const ServiceProperty = require('../ServiceProperty');
 
 module.exports = function Activity(extensions, activityElement, parentContext) {
-  const { logger, behaviour, environment } = activityElement;
-  const {id, $type, eventDefinitions} = activityElement.behaviour;
-  const { form, io, listeners } = extensions;
+  const { logger, behaviour } = activityElement;
+  const environment = parentContext.environment || activityElement.environment;
+  const {id, $type, eventDefinitions, expression, extensionElements} = activityElement.behaviour;
+  const { form, io, listeners, properties } = extensions;
+  const hasExtValues = extensionElements && extensionElements.values;
   let savedState;
   let resumedTag;
   let resultData = {};
@@ -48,10 +53,12 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
   activityElement.behaviour.__defineGetter__('state', function() {
     const state = {};
-    if (this.form) state.form = this.form.getState();
-    if (this.io) state.io = this.io.getState();
+    if (this.form && this.form.getState) state.form = this.form.getState();
+    if (this.io && this.io.getState) state.io = this.io.getState();
     return state;
   });
+
+  if (!activityElement.behaviour.Service) activityElement.behaviour.Service = extensions.service = loadService();
 
   if (activityElement.type !== 'bpmn:Process') {
     activityElement._getState = activityElement.getState;
@@ -84,7 +91,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
   }
 
   function StartEvent() {
-    console.error('>> StartEvent');
+    logger.debug('>> StartEvent');
     if (eventDefinitions) {
       const hasMessage = eventDefinitions.find(event => {
         return event.behaviour.$type === 'bpmn:MessageEventDefinition';
@@ -95,16 +102,16 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       activityElement.Behaviour = SignalTask.SignalTaskBehaviour;
       resumedTag = '_run_resume-' + id;
       activityElement.broker.subscribeTmp('run', 'run.resume', (_eventName, message, api) => {
-        console.error('>>>> RESUME: %o', message);
-        console.error(savedState);
+        logger.debug('>>>> RESUME: %o', message);
       }, { noAck: true, priority: 10000, durable: true, consumerTag: resumedTag });
     }
     return Base();
   }
 
   function Base() {
-    console.log(`BASE ${$type} <${id}>`);
-    console.log('hasform? %o', extensions.form);
+    logger.debug(`BASE ${$type} <${id}>`);
+//    console.log('hasform? %o', extensions.form);
+//    console.warn(activityElement);
 
     let completedTag;
     let startTag;
@@ -119,7 +126,6 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
       if (message.content.isMultiInstance) {
         if (!multiTag) {
-          console.error('>> subscribe');
           multiTag = `_event-iterate-${message.content.executionId}`;
           activityElement.broker.subscribeTmp('execution'
             , 'execute.start'
@@ -128,11 +134,8 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
         }
       }
       logger.debug('BASE - activate - message: %o', message);
-//      console.error(message.content);
-//      console.error(environment.variables);
-      logger.debug('BASE - activate - behaviour: %o', behaviour);
       if (message.content && message.content.ioSpecification) {
-        console.log('BASE- iospec: %o', message.content.ioSpecification);
+        logger.debug('BASE- iospec: %o', message.content.ioSpecification);
       }
       if (listeners && undefined !== listeners) {
         logger.debug('activate listeners');
@@ -156,7 +159,6 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
           , {noAck: true, consumerTag: startTag });
       }
       if (!completedTag) {
-        console.error('>>> subscribe!');
         completedTag = `_event-complete-${id}-${parentContext.executionId}`;
         activityElement.broker.subscribeTmp('event'
           , 'activity.end'
@@ -197,7 +199,13 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       logger.debug(`<${id}> saving outputs (content.id: ${contentId})`);
       if (contentId !== id) return;
 
-      logger.debug(`<${id}> saving outputs`);
+      // TODO: remove!!
+      if (output) {
+        delete output['fields'];
+        delete output['content'];
+        delete output['properties'];
+      }
+
       if (isMultiInstance) {
         const aggregate = {};
         output.forEach((outputItem) => {
@@ -210,18 +218,19 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       } else {
         const _output = activityElement.getOutput(message.content);
         output = { ...output, ..._output };
-        console.error('>>> getoutput: %o', output);
       }
 
+      logger.debug(`<${id}> save output: %O`, output);
       if (output===null || Object.entries(output).length===0)
         return ;
+
       environment.assignVariables(output);
       environment.output[id] = output;
     }
 
     function onActivityStart(_eventName, message, activity) {
       message.content.input = activity.getInput();
-      console.error('>> assigned input: %o', message.content.input);
+      logger.debug(`<${id}> assigned input: %o`, message.content.input);
       if (!io) return;
       const { broker } = activity;
       const formKeyValue = environment.expressions.resolveExpression(activity.behaviour.getForm().formKey, message);
@@ -251,6 +260,29 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
       const ioApi = activityElement.behaviour.io;
       if (ioApi && ioApi.setResult) ioApi.setResult(message.content.output);
+    }
+  }
+
+  function loadService() {
+    logger.debug(`<${id}> loadService`);
+    if (hasExtValues) {
+      const source = extensionElements.values.find((elm) => elm.$type === 'camunda:Connector');
+      if (source) {
+        logger.debug(`<${id}> loadService: Connector - source: %o`, source);
+        return Connector(source, activityElement);
+      }
+    }
+
+    if (expression) {
+      logger.debug(`<${id}> loadService: ServiceExpression`);
+      return ServiceExpression(activityElement, parentContext);
+    }
+
+    if (properties && properties.getProperty('service')) {
+      logger.debug(`<${id}> loadService: ServiceProperty`);
+      return ServiceProperty(activityElement
+        , parentContext
+        , properties);
     }
   }
 };

@@ -160,4 +160,79 @@ describe('MultiInstanceLoopCharacteristics', () => {
 
     });
   });
+  it('saves the loop state', () => {
+    const source = `
+    <bpmn:definitions id="Definitions_1" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://bpmn.io/schema/bpmn">
+      <bpmn:process id="mrProcess" isExecutable="true">
+        <bpmn:serviceTask id="mrTask" name="in parallel" camunda:expression="\${environment.services.loop}" camunda:resultVariable="MrResult">
+          <bpmn:multiInstanceLoopCharacteristics isSequential="false" camunda:collection="\${environment.variables.mrList}" camunda:elementVariable="mrItem" />
+          <bpmn:extensionElements>
+            <camunda:inputOutput>
+              <camunda:inputParameter name="item">\${mrItem}</camunda:inputParameter>
+              <camunda:inputParameter name="mrParameter">index:\${index}#item:\${mrItem}</camunda:inputParameter>
+              <camunda:outputParameter name="mrOutput">\${output}</camunda:outputParameter>
+            </camunda:inputOutput>
+          </bpmn:extensionElements>
+        </bpmn:serviceTask>
+      </bpmn:process>
+    </bpmn:definitions>`;
+
+    return testEngine({ source, variables: {
+      input: [1, 2, 3, 7]
+    }}, ({ engine, listener, res, rej}) => {
+      const sum = [];
+      let stateStart;
+      let stateEnd;
+      listener.on('activity.start', (context) => {
+        try {
+          console.error('>>>>>>>>>>>>>>> GET STATE');
+          engine.getState().then(state => {
+            console.log('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+            console.log(state);
+            stateStart = state;
+          }).catch(ex => {
+            console.error('GET-STATE-ERROR: %o', ex);
+            rej(ex);
+          });
+        } catch (ex) {
+          rej(ex);
+        }
+      });
+      listener.on('activity.start', (context) => {
+        try {
+          console.error('>>>>>>>>>>>>>>> GET STATE');
+          engine.getState().then(state => {
+            console.log('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++');
+            console.log(state.definitions[0].execution.processes[0]);
+            stateEnd = state;
+            // TODO: WHERE THE OUTPUT GOES????
+            res();
+          }).catch(ex => {
+            console.error('GET-STATE-ERROR: %o', ex);
+            rej(ex);
+          });
+        } catch (ex) {
+          rej(ex);
+        }
+      });
+      engine.execute({
+        listener,
+        services: {
+          loop: (executionContext, callback) => {
+            const value = executionContext.mrItem * 2;
+            sum[executionContext.index] = [ value ];
+            callback(null, value);
+          }
+        },
+        variables: {
+          mrList: [1, 1, 2, 3, 5, 8, 13, 21]
+        }
+      }, (err) => {
+        if (err) rej(err);
+        console.error("SUM: %o", sum);
+      });
+    });
+  });
+
 });

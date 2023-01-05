@@ -26,7 +26,7 @@ module.exports = function Listeners(listeners, parentContext) {
   };
 
   function activate(parentApi, executionContext) {
-    console.error('>>> <%o>listeners.activate %o', parentApi.id, (executionContext.fields ? executionContext.fields.routingKey : {}));
+    debug('>>> <%o>listeners.activate %o', parentApi.id, (executionContext.fields ? executionContext.fields.routingKey : {}));
     if (!(executionContext && executionContext.fields && executionContext.fields.routingKey === 'run.enter')) return;
 
     for (const idx in atEventList) {

@@ -18,7 +18,7 @@ function Camunda(activityElement, parentContext) {
   const behaviour = activityElement.behaviour;
   const { extensionElements, formKey } = behaviour;
   const hasExtValues = extensionElements && extensionElements.values;
-  console.log(`Camunda(construct) ${activityElement.id}:${activityElement.name || 'no-name'}`);
+  activityElement.logger.debug(`Camunda(construct) ${activityElement.id}:${activityElement.name || 'no-name'}`);
 
   const listeners = loadListeners();
   const properties = loadProperties();
@@ -35,7 +35,7 @@ function Camunda(activityElement, parentContext) {
   function loadIo() {
     if (hasExtValues) {
       const source = extensionElements.values.find((elm) => elm.$type === 'camunda:InputOutput');
-      if (source) return InputOutput(source, parentContext);
+      if (source) return InputOutput(source, activityElement);
     }
     if (activityElement.behaviour.resultVariable) {
       return ResultVariableIo(activityElement.behaviour, parentContext);

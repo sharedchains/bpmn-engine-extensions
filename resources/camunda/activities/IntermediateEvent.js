@@ -10,7 +10,7 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
   const isThrow = activityElement.isThrowing;
   const debug = activityElement.environment.Logger('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id).debug;
   const {io, properties, listeners } = extensions;
-  const {resultVariable} = activityElement.behaviour;
+  const {resultVariable, eventDefinitions} = activityElement.behaviour;
   let connectorExecutor = null;
   let messageTag;
   debug('eventType: %o', (isThrow ? 'THROW' : 'CATCH'));
@@ -22,25 +22,34 @@ module.exports = function IntermediateEvent(extensions, activityElement, parentC
   }
 
   extensions.listeners = listeners;
-  extensions.service = loadService(activityElement.behaviour.eventDefinitions);
+  extensions.service = loadService(eventDefinitions);
   activityElement.behaviour.Service = executeConnector;
   extensions.activate = (message) => {
     debug('>>> activate %o', message);
     if (listeners && undefined !== listeners) {
       listeners.activate(activityElement, message);
     }
-    if (extensions.service && extensions.service.activate) {
-      connectorExecutor = extensions.service.activate(message
-        , { isLoopContext: message.isMultiInstance, index: 0 });
-    }
+    if (extensions.service) {
+      debug('activate Connector/Service');
+      console.error(eventDefinitions);
+      connectorExecutor = new extensions.service(activityElement,
+        Object.assign({}, message
+          , { isLoopContext: message.isMultiInstance, index: 0 })
+      );
+      messageTag = `_event-message-${message.content.executionId}`;
+      activityElement.broker.subscribeTmp('event', 'activity.message'
+        , (eventName, context) => {
+          console.error('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ACTIVITY.MESSAGE');
+          console.error(activityElement);
+          connectorExecutor.execute(context, (err, cb) => {
+            console.error('ACTIVITY.MESSAGE done CTX: %o', context);
+          })
+          console.error('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ACTIVITY.MESSAGE');
+        }
+        , { noAck: true, priority: 1000, consumerTag: messageTag});
+    };
+  }
 
-    messageTag = `_event-message-${message.content.executionId}`;
-    activityElement.broker.subscribeTmp('event', 'activity.message'
-      , (eventName, context) => {
-        context.content.message.fields = getFields();
-      }
-      , { noAck: true, priority: 1000, consumerTag: messageTag});
-  };
 
   extensions.deactivate = (message) => {
     debug('deactivate %o', message);

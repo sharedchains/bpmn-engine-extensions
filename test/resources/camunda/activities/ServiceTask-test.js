@@ -23,8 +23,9 @@ describe('ServiceTask', () => {
             apiUrl
           }
           , services: {
-            getRequest: ({ content }, callback) => {
+            getRequest: (context, callback) => {
               // here we check input variables are correctly set
+              let { content } = context;
               expect(content.input).to.be.ok;
               expect(content.input).to.deep.equal({ uri: 'http://example.com/api', json: true } );
               got({
@@ -184,7 +185,9 @@ describe('ServiceTask', () => {
           source: factory.resource('issue-7.bpmn')
         }).then(({engine, listener}) => {
 
+          listener.onAny((x) => { console.error(x); });
           listener.on('activity.execution.completed', ({ content, id }) => {
+            console.error('COMPLETE!');
             try {
               if (id === 'Task_0kxsx8j') {
                 expect(content.output).to.eql(['success']);
