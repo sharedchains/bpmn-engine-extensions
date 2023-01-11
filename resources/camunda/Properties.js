@@ -1,6 +1,5 @@
 'use strict';
 
-const Debug = require('debug');
 const Parameter = require('./Parameter');
 
 module.exports = function Properties(properties, parentContext) {
@@ -9,7 +8,7 @@ module.exports = function Properties(properties, parentContext) {
   if (!values) return;
 
   const {environment} = parentContext;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const {debug} = environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
   const parameters = values.map((parm) => Parameter(parm, environment));
 
   return {

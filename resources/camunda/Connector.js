@@ -84,7 +84,7 @@ function Connector(source, activityElement) {
         , message
       });
 
-      console.log('+++++ execute args: %o', executeArgs);
+      console.log('(connector) +++++ execute args: %o', executeArgs);
       const serviceCallback = (err, args) => {
         debug('aftercallback args: %o', (args || {}));
         if (err) {
@@ -109,7 +109,7 @@ function Connector(source, activityElement) {
 
       const serviceFn = this.environment.getServiceByName(this.name);
       debug('%o has serviceFn ? %o', this.name, (serviceFn ? 'yes' : 'nada'));
-      if (serviceFn === null) {
+      if (!serviceFn) {
         // eslint-disable-next-line no-console
         console.warn('>> %o/%o MISSING ServiceFn', this.id, this.name);
         return callback('Missing service function', null);
@@ -117,7 +117,7 @@ function Connector(source, activityElement) {
       try
       {
         console.error('============================================================== CALL SERVICEFN');
-        let res = serviceFn.apply(this.parentApi, executeArgs);
+        let res = serviceFn.apply(this.activityElement, executeArgs);
         if (res!==undefined) {
           console.log('SERVICEFN - result: %o', res);
           serviceCallback(null, res);

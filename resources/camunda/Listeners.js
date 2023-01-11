@@ -1,11 +1,10 @@
 'use strict';
 
-const Debug = require('debug');
 const Listener = require('./Listener');
 
 module.exports = function Listeners(listeners, parentContext) {
   const type = 'camunda:ExecutionListeners';
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const { debug } = parentContext.environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
   const atEventList = [];
 
   debug('listeners: %o', listeners);

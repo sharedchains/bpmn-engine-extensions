@@ -18,6 +18,8 @@ function Camunda(activityElement, parentContext) {
   const behaviour = activityElement.behaviour;
   const { extensionElements, formKey } = behaviour;
   const hasExtValues = extensionElements && extensionElements.values;
+  if (behaviour.$type === 'bpmn::Process') return;
+
   activityElement.logger.debug(`Camunda(construct) ${activityElement.id}:${activityElement.name || 'no-name'}`);
 
   const listeners = loadListeners();

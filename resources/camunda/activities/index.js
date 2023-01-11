@@ -1,7 +1,6 @@
 'use strict';
 
 const BoundaryEvent = require('./BoundaryEvent');
-const SignalTask = require('bpmn-elements/dist/src/tasks/SignalTask');
 const ServiceTask = require('./ServiceTask');
 const CallActivity = require('./CallActivity');
 const IntermediateEvent = require('./IntermediateEvent');
@@ -10,16 +9,46 @@ const Connector = require('../Connector');
 const ServiceExpression = require('../ServiceExpression');
 const ServiceProperty = require('../ServiceProperty');
 
+const { SignalTask, MessageEventDefinition } = require('bpmn-elements');
+
 module.exports = function Activity(extensions, activityElement, parentContext) {
   const { logger, behaviour } = activityElement;
   const environment = parentContext.environment || activityElement.environment;
-  const {id, $type, eventDefinitions, expression, extensionElements} = activityElement.behaviour;
+  const {id, $type, eventDefinitions, expression, extensionElements} = behaviour;
   const { form, io, listeners, properties } = extensions;
   const hasExtValues = extensionElements && extensionElements.values;
   let savedState;
   let resumedTag;
   let resultData = {};
 
+  activityElement.throwMessage = function (name) {
+    const messageActivity = this.context.getActivities().filter(act => act.name === name)[0];
+    if (!messageActivity) throw new Error('Missing message "' + name + '"');
+    const msgToThrow = new MessageEventDefinition({
+      id: 'throwEvent' + this.executionId.replace(this.id, '')
+      , environment: this.environment
+      , broker: this.broker
+      , isThrowing: true
+      , getActivityById(id) {
+        if (id !== messageActivity.id) return;
+        return messageActivity;
+      }
+    }
+    , {
+      behaviour: {
+        messageRef: messageActivity.resolve()
+      },
+    });
+    // NO DOT SPECIFY exectionId here, message won't reach destination
+    msgToThrow.execute({
+      fields: { }
+      , content: {
+        id: messageActivity.id
+        , index: 0
+        , parent: this.parent
+      }
+    });
+  }
   activityElement.setOutputValue = function(name, value) {
     if (activityElement.behaviour.io) return activityElement.behaviour.io.setOutputValue(name, value);
     resultData[name] = value;
@@ -80,6 +109,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
   switch ($type) {
     case 'bpmn:ServiceTask': return ServiceTask(extensions, activityElement, parentContext);
+    case 'bpmn:SendTask': return ServiceTask(extensions, activityElement, parentContext);
     case 'bpmn:ScriptTask': return ScriptTask(extensions, activityElement, parentContext);
     case 'bpmn:BoundaryEvent': return BoundaryEvent(extensions, activityElement, parentContext);
     case 'bpmn:CallActivity': return CallActivity(extensions, activityElement, parentContext);

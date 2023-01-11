@@ -1,6 +1,5 @@
 'use strict';
 
-const Debug = require('debug');
 const {Script} = require('vm');
 
 module.exports = function Listener(listener, parentContext)
@@ -8,10 +7,10 @@ module.exports = function Listener(listener, parentContext)
   const { event, script } = listener;
   const fields = listener.fields || {};
   const type = 'camunda:ExecutionListeners:'+event;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
-  debug('listener: %o', listener);
   const { environment } = parentContext;
   const { resources } = environment.options;
+  const { debug } = environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
+  debug('listener: %o', listener);
   var jsScript = null;
   let discarded = false;
 
@@ -99,10 +98,10 @@ module.exports = function Listener(listener, parentContext)
     debug(`${parentApi.id} has jsScript`);
       const timers = environment.timers.register(parentApi);
       return jsScript.runInNewContext({
-          next: (...args) => { if(callback) callback(args); }
-          , ...fields
+          ...fields
           , ...parentApi
           , ...timers
+          , next: (...args) => { if(callback) callback(args); }
         });
   }
 }

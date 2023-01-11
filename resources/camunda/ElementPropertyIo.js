@@ -1,12 +1,11 @@
 'use strict';
 
-const Debug = require('debug');
 const getNormalizedResult = require('./getNormalizedResult');
 
 module.exports = function ElementPropertyIo(activityElement, {environment}, form) {
   const {id, $type} = activityElement;
   const type = `${$type}:elementio`;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const { debug } = activityElement.environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
   const outputParameters = [];
 
   return {

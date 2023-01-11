@@ -1,6 +1,5 @@
 'use strict';
 
-const Debug = require('debug');
 const {hasExpression, isSupportedScriptType} = require('./utils');
 const {execute: executeScript, parse: parseScript} = require('./script-helper');
 
@@ -11,7 +10,7 @@ function Parameter(parm, environment) {
 
   const {resolveExpression} = environment.expressions;
 
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const { debug } = environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
 
   const valueType = getValueType();
 
@@ -77,7 +76,7 @@ function Parameter(parm, environment) {
 
     function internalGet(from = {}) {
       let _value = null;
-      console.log('(parameter)========= <%o>internalGet(from:%o)', name, from);
+//      console.log('(parameter)========= <%o>internalGet(from:%o)', name, from);
       const ctx = { ...loopArgs, ...environment.variables, ...inputContext, ...from, environment };
 //      console.log('(parameter)========= <%o>internalGet(ctx:%o)', name, ctx);
       switch (valueType) {

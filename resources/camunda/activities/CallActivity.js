@@ -1,12 +1,11 @@
 'use strict';
 
 const ElementPropertyIo = require('../ElementPropertyIo');
-const Debug = require('debug');
 
 module.exports = function CallActivity(extensions, activityElement, parentContext) {
   const {eventDefinitions} = activityElement;
   const {io} = extensions;
-  const debug = Debug(`bpmn-engine:camunda:${activityElement.id}`);
+  const { debug } = activityElement.environment.Logger(`bpmn-engine:camunda:${activityElement.id}`);
 
   extensions.io = loadIo();
   extensions.activate = (message) => {

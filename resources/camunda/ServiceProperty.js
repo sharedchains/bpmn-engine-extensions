@@ -1,7 +1,7 @@
 'use strict';
 
 module.exports = function ServiceProperty(activityElement
-  , parentContext
+  , _parentContext
   , properties) {
   const { id, environment } = activityElement;
   const type = activityElement.behaviour.$type;

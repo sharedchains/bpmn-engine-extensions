@@ -27,7 +27,12 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
   if (io && io.allowReturnInputContext) io.allowReturnInputContext(true);
 
   extensions.listeners = listeners;
-  if (!activityElement.behaviour.Service) activityElement.behaviour.Service = extensions.service = loadService();
+  if (!activityElement.behaviour.Service) {
+    activityElement.behaviour.Service = extensions.service = loadService();
+    if (!activityElement.behaviour.Service && activityElement.type === 'bpmn:SendTask') {
+      activityElement.behaviour.Service = activityElement.environment.getServiceByName(id);
+    }
+  }
   //  extensions.loopCharacteristics = loopCharacteristics;
 
   activityElement.behaviour.io = io;
@@ -82,7 +87,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
     function onActivityStart(_eventName, message, activity) {
       message.content.input = activity.getInput();
       logger.debug(`<${id}> apply input on ${_eventName}`);
-      console.error('>> assigned input: %o', message.content.input);
+//      console.error('>> assigned input: %o', message.content.input);
     }
 
     function onActivityEnd(_eventName, message, {behaviour, environment}) {
@@ -94,8 +99,8 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
         delete output.content;
         delete output.properties;
       }
-      console.log('>>>>>>>>>>>>>>>>>>>>> MESSAGE: %o', message);
-      console.log('>>>>>>>>>>>>>>>>>>>>> ON-ACTIVITY-END: output: %o', output);
+//      console.log('>>>>>>>>>>>>>>>>>>>>> MESSAGE: %o', message);
+//      console.log('>>>>>>>>>>>>>>>>>>>>> ON-ACTIVITY-END: output: %o', output);
       if (isMultiInstance) {
         const aggregate = {};
         output.forEach((outputItem) => {
@@ -107,7 +112,7 @@ module.exports = function ServiceTask(extensions, activityElement, parentContext
         output = aggregate;
       }
       behaviour.io.setResult(output);
-      console.log('>>>>> IO.SAVE!');
+//      console.log('>>>>> IO.SAVE!');
       behaviour.io.save();
       environment.output[id] = behaviour.io.getOutput();
     }

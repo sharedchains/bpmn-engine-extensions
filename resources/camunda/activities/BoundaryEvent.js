@@ -1,14 +1,12 @@
 'use strict';
 
-const Debug = require('debug');
-
-module.exports = function BoundaryEvent(extensions, activityElement, parentContext) {
+module.exports = function BoundaryEvent(extensions, activityElement) {
   const {id} = activityElement;
   const { eventDefinitions } = activityElement.behaviour;
   const {listeners} = extensions;
   let catchTag;
   let timeoutTag;
-  const debug = Debug(`bpmn-engine:camunda:${activityElement.type}:${activityElement.id}`);
+  const { debug } = activityElement.environment.Logger(`bpmn-engine:camunda:${activityElement.type}:${activityElement.id}`);
   /*
   console.log('>>>>>>>>>>>>> BOUNDARY-EVENT: %o', activityElement.id);
           activityElement.broker.subscribeTmp('event', '#', (...args) => {

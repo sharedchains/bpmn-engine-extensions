@@ -29,7 +29,7 @@ module.exports = function ScriptTask(extensions, activityElement, parentContext)
   function onActivityEnd(_eventName, message, {behaviour, environment}) {
     logger.debug(`<${id}> saving outputs`);
     let { isMultiInstance, output } = message.content;
-    console.log('>>>>>>>>>>>>>>>>>>>>> ON-ACTIVITY-END: output: %o', output);
+//    console.log('>>>>>>>>>>>>>>>>>>>>> ON-ACTIVITY-END: output: %o', output);
     if (isMultiInstance) {
       const aggregate = {};
       output.forEach((outputItem) => {

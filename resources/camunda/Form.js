@@ -10,7 +10,7 @@ function Form(formData, parentContext) {
   if (!formFields || !formFields.length) return;
 
   const {id, $type: type} = formData;
-  const debug = environment.Logger(`bpmn-engine:${type.toLowerCase()}`).debug;
+  const { debug } = environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
 
   return {
     id,

@@ -1,13 +1,12 @@
 'use strict';
 
-const Debug = require('debug');
 const getNormalizedResult = require('./getNormalizedResult');
 const {hasExpression} = require('./utils');
 
 module.exports = function ResultVariableIo(activityElement, {environment}) {
   const {id, $type, resultVariable} = activityElement;
   const type = `${$type}:resultvariable`;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const { debug } = environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
   debug('ResultVariable element: %o', activityElement);
 
   return {

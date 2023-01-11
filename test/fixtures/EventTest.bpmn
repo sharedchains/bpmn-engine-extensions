@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_05eg42g" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.5.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.18.0">
+  <bpmn:message id="Message_32dun70" name="Message1to2" />
+  <bpmn:message id="Message_2j532bs" name="Message2to1" />
+  <bpmn:collaboration id="Collaboration_1vyhabc">
+    <bpmn:participant id="Participant1" name="one" processRef="Process1" />
+    <bpmn:participant id="Participant2" name="two" processRef="Process2" />
+    <bpmn:messageFlow id="Flow1to2" sourceRef="ActivitySendTask" targetRef="EventReceiveMessage" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process1" name="one" isExecutable="true">
+    <bpmn:startEvent id="EventStart1">
+      <bpmn:outgoing>Flow_1rxvti2</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sendTask id="ActivitySendTask" name="Send Task">
+      <bpmn:extensionElements>
+        <camunda:connector>
+          <camunda:connectorId>ActivitySendTask</camunda:connectorId>
+        </camunda:connector>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1rxvti2</bpmn:incoming>
+      <bpmn:outgoing>Flow1_3</bpmn:outgoing>
+    </bpmn:sendTask>
+    <bpmn:endEvent id="EventEnd1">
+      <bpmn:incoming>Flow1_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1rxvti2" sourceRef="EventStart1" targetRef="ActivitySendTask" />
+    <bpmn:sequenceFlow id="Flow1_3" sourceRef="ActivitySendTask" targetRef="EventEnd1" />
+  </bpmn:process>
+  <bpmn:process id="Process2" name="two" isExecutable="true">
+    <bpmn:endEvent id="EventEnd2">
+      <bpmn:incoming>Flow2_3</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow2_3" sourceRef="EventReceiveMessage" targetRef="EventEnd2" />
+    <bpmn:startEvent id="EventReceiveMessage" name="Receive Message">
+      <bpmn:outgoing>Flow2_3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0y6m7dq" messageRef="Message_32dun70" />
+    </bpmn:startEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1vyhabc">
+      <bpmndi:BPMNShape id="Participant_1w1t0du_di" bpmnElement="Participant1" isHorizontal="true">
+        <dc:Bounds x="160" y="100" width="808" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_08qdtfd_di" bpmnElement="EventStart1">
+        <dc:Bounds x="282" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0nux1t6_di" bpmnElement="ActivitySendTask">
+        <dc:Bounds x="550" y="170" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_02g9dmi_di" bpmnElement="EventEnd1">
+        <dc:Bounds x="722" y="192" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1t88p0x_di" bpmnElement="Flow1_3">
+        <di:waypoint x="650" y="210" />
+        <di:waypoint x="722" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1rxvti2_di" bpmnElement="Flow_1rxvti2">
+        <di:waypoint x="318" y="210" />
+        <di:waypoint x="550" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_1ynsl9s_di" bpmnElement="Participant2" isHorizontal="true">
+        <dc:Bounds x="160" y="370" width="808" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0w4jqab_di" bpmnElement="EventEnd2">
+        <dc:Bounds x="722" y="462" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_18zixqv_di" bpmnElement="EventReceiveMessage">
+        <dc:Bounds x="582" y="462" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="556" y="505" width="88" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1utm3z8_di" bpmnElement="Flow2_3">
+        <di:waypoint x="618" y="480" />
+        <di:waypoint x="722" y="480" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19xfx7p_di" bpmnElement="Flow1to2">
+        <di:waypoint x="600" y="250" />
+        <di:waypoint x="600" y="462" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

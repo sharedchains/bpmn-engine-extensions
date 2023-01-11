@@ -1,11 +1,9 @@
 'use strict';
 
-const Debug = require('debug');
-
 const ServiceExpression = function(activity, _) {
   const { $type } = activity;
   const type = `${$type}:expression`;
-  const debug = Debug(`bpmn-engine:${type.toLowerCase()}`);
+  const { debug } = activity.environment.Logger(`bpmn-engine:${type.toLowerCase()}`);
 
   const serviceExpressionObj = function(activityElement, inputContext) {
     const {id, environment} = activityElement;

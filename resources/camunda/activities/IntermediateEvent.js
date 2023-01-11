@@ -8,7 +8,7 @@ const Fields = require('../Fields');
 
 module.exports = function IntermediateEvent(extensions, activityElement, parentContext) {
   const isThrow = activityElement.isThrowing;
-  const debug = activityElement.environment.Logger('bpmn-engine:camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id).debug;
+  const debug = activityElement.environment.Logger('camunda:Intermediate' + (isThrow ? 'Throw' : 'Catch' ) + 'Event:' + activityElement.id).debug;
   const {io, properties, listeners } = extensions;
   const {resultVariable, eventDefinitions} = activityElement.behaviour;
   let connectorExecutor = null;
