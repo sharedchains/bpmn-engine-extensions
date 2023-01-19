@@ -128,13 +128,16 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       });
       if (hasMessage) return IntermediateEvent(extensions, activityElement, parentContext);
     }
+    /*
     if (extensions.io || extensions.form) {
+      logger.debug('Switch to SignalTaskBehaviour');
       activityElement.Behaviour = SignalTask.SignalTaskBehaviour;
       resumedTag = '_run_resume-' + id;
       activityElement.broker.subscribeTmp('run', 'run.resume', (_eventName, message, api) => {
         logger.debug('>>>> RESUME: %o', message);
       }, { noAck: true, priority: 10000, durable: true, consumerTag: resumedTag });
     }
+    */
     return Base();
   }
 
@@ -143,10 +146,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 //    console.log('hasform? %o', extensions.form);
 //    console.warn(activityElement);
 
-    let completedTag;
-    let startTag;
-    let multiTag;
-    let startSPTag;
+    let completedTag, startTag, multiTag, startSPTag, endTag;
 
     activityElement.listeners = listeners;
     return { activate, deactivate };
@@ -182,6 +182,7 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
         if (savedState) activityElement.behaviour.form.recover(savedState);
       }
       if (!startTag && $type === 'bpmn:StartEvent') {
+        logger.debug('subscribe to startEvent');
         startTag = `_event-start-${parentContext.executionId}`;
         activityElement.broker.subscribeTmp('event'
           , 'activity.start'
@@ -189,11 +190,13 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
           , {noAck: true, consumerTag: startTag });
       }
       if (!completedTag) {
+        logger.debug('subscribe to endEvent and complete event');
         completedTag = `_event-complete-${id}-${parentContext.executionId}`;
+        endTag = `_event-end-${id}-${parentContext.executionId}`;
         activityElement.broker.subscribeTmp('event'
           , 'activity.end'
           , onActivityEnd
-          , {noAck: true, priotity: 1000 });
+          , {noAck: true, priotity: 1000, consumerTag: endTag });
         activityElement.broker.subscribeTmp('event'
           , 'activity.execution.completed'
           , onActivityEnd
@@ -260,11 +263,18 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
 
     function onActivityStart(_eventName, message, activity) {
       message.content.input = activity.getInput();
-      logger.debug(`<${id}> assigned input: %o`, message.content.input);
-      if (!io) return;
+      let form = activity.getForm();
+      logger.debug(`<${id}> onStart assigned input: %o`, message.content.input);
+      logger.debug(`<${id}> onStart formKey: ${form?.formKey}`);
+      if (!io && !form) return;
+
       const { broker } = activity;
-      const formKeyValue = environment.expressions.resolveExpression(activity.behaviour.getForm().formKey, message);
-      logger.debug(`<${id}> apply form ${formKeyValue}`);
+      if (!form.formKey) {
+        broker.publish('format', 'run.enter.format', { form }, { persistent: false });
+        return;
+      }
+      const formKeyValue = environment.expressions.resolveExpression(activity.getForm().formKey, message);
+      logger.debug(`<${id}> onStart apply form ${formKeyValue}`);
 
       // see commit d5b9087 of bpmn-elements test
       broker.publish('format', 'run.enter.format', {
@@ -283,6 +293,8 @@ module.exports = function Activity(extensions, activityElement, parentContext) {
       activityElement.broker.cancel(completedTag);
       activityElement.broker.cancel(resumedTag);
       activityElement.broker.cancel(multiTag);
+      activityElement.broker.cancel(endTag);
+      startSPTag = startTag = completedTag = resumedTag = multiTag = endTag = null;
 
       if (listeners && undefined !== listeners) {
         listeners.deactivate(message, activityElement);

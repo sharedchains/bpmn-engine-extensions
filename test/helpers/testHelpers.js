@@ -14,6 +14,17 @@ const apiHost = 'http://example.com';
 const apiPath = '/api';
 const apiUrl = apiHost + apiPath;
 
+function DummyLogger() {
+  return {
+    debug,
+    error,
+    warn
+  };
+  function debug() {}
+  function error() {}
+  function warn() {}
+}
+
 module.exports = {
   initEngine,
   getEngine,
@@ -27,8 +38,17 @@ module.exports = {
   getNockGet,
   apiUrl,
   apiPath,
-  apiHost
+  apiHost,
+  fakeEngine
 };
+
+
+function fakeEngine(options = {}) {
+  return {
+    Logger: DummyLogger
+    , ...options
+  };
+}
 
 let scope;
 function getNockGet(_apiHost = apiHost, _apiPath = apiPath) {
@@ -192,14 +212,18 @@ function testEngine(options = {}, testFn) {
   const engine = getEngine(options);
   const listener = new EventEmitter2();
   return new Promise((res, rej) => {
-    engine.getDefinitions().then(definitions => {
-      testFn({ definition: definitions[0]
-        , engine
-        , listener
-        , res
-        , rej
+    try {
+      engine.getDefinitions().then(definitions => {
+        testFn({ definition: definitions[0]
+          , engine
+          , listener
+          , res
+          , rej
+        });
       });
-    });
+    } catch (ex) {
+      rej(ex);
+    }
   });
 }
 

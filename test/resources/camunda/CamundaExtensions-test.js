@@ -1052,6 +1052,11 @@ describe('Camunda extension', () => {
     });
   });
 
+  /** Actually ISSUE23 was a *WRONG ISSUE*
+   * Gateways cannot have InputOutput extensionElements thus their IO cannot be evaluated at all
+   * Also diagram was wrong since there was no "default" in flow4 and exectution happened to have
+   * unpredictable results.
+   */
   describe('issue 23', () => {
     it('looped exclusiveGateway with io should trigger end event', () => {
       const source = `
@@ -1059,44 +1064,60 @@ describe('Camunda extension', () => {
         <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xmlns:camunda="http://camunda.org/schema/1.0/bpmn">
         <process id="issue-23" isExecutable="true">
-          <startEvent id="start" />
-          <task id="task1" />
-          <task id="task2">
-            <extensionElements>
-              <camunda:InputOutput>
-                <camunda:outputParameter name="tookDecision">\${environment.variables.decision}</camunda:outputParameter>
-              </camunda:InputOutput>
-            </extensionElements>
-          </task>
-          <exclusiveGateway id="decision" default="flow4">
-            <extensionElements>
-              <camunda:InputOutput>
-                <camunda:outputParameter name="decision">\${true}</camunda:outputParameter>
-              </camunda:InputOutput>
-            </extensionElements>
-          </exclusiveGateway>
-          <endEvent id="end" />
-          <sequenceFlow id="flow1" sourceRef="start" targetRef="task1" />
-          <sequenceFlow id="flow2" sourceRef="task1" targetRef="task2" />
-          <sequenceFlow id="flow3" sourceRef="task2" targetRef="decision" />
-          <sequenceFlow id="flow4" sourceRef="decision" targetRef="task1" />
-          <sequenceFlow id="flow5" sourceRef="decision" targetRef="end">
-            <conditionExpression xsi:type="tFormalExpression">\${environment.variables.tookDecision}</conditionExpression>
-          </sequenceFlow>
+    <bpmn:startEvent id="start" name="start">
+      <bpmn:outgoing>flow1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:task id="task1" name="task1">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:outputParameter name="decision">
+            <camunda:script scriptFormat="javascript">'boolean' === typeof environment.variables.decision ? true: false</camunda:script>
+          </camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow1</bpmn:incoming>
+      <bpmn:incoming>flow4</bpmn:incoming>
+      <bpmn:outgoing>flow2</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:sequenceFlow id="flow1" sourceRef="start" targetRef="task1" />
+    <bpmn:task id="task2" name="task2">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:outputParameter name="tookDecision">\${environment.variables.decision}</camunda:outputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow2</bpmn:incoming>
+      <bpmn:outgoing>flow3</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:sequenceFlow id="flow2" sourceRef="task1" targetRef="task2" />
+    <bpmn:exclusiveGateway id="decision" name="decision" default='flow4'>
+      <bpmn:incoming>flow3</bpmn:incoming>
+      <bpmn:outgoing>flow4</bpmn:outgoing>
+      <bpmn:outgoing>flow5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="flow3" sourceRef="task2" targetRef="decision" />
+    <bpmn:sequenceFlow id="flow4" sourceRef="decision" targetRef="task1" />
+    <bpmn:endEvent id="end" name="end">
+      <bpmn:incoming>flow5</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow5" sourceRef="decision" targetRef="end">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">\${environment.variables.tookDecision}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
         </process>
       </definitions>`;
 
-      return testEngine(source, env => {
-        const { engine, listener, res, rej } = env;
+      return testEngine(source, ({ engine, listener, res, rej }) => {
 
         let taskCount = 0;
+        listener.onAny((event, api) => { console.log('>>>> %O<%O> vars: %O', event, api.id, api.environment.variables)});
         listener.on('activity.start', (a) => {
+          console.error('>>>>>>>>>>>>>>>>> %O count: %o', a.id, taskCount);
           if (a.id === 'task1') {
             taskCount++;
             if (taskCount > 2) {
-              rej(`Too many <${a.id}> starts`);
+              throw `Too many <${a.id}> starts`;
             }
-            a.signal();
+//            a.signal();
           }
         });
 

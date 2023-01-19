@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_05spjsy" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.5.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.18.0">
+  <bpmn:collaboration id="collaboration">
+    <bpmn:participant id="participant-2" name="two" processRef="process-2" />
+    <bpmn:participant id="participant-1" name="one" processRef="process-1" />
+    <bpmn:participant id="participant-3" name="three" processRef="process-3" />
+    <bpmn:messageFlow id="message2-flow-1" sourceRef="end-event-2" targetRef="wait-for-message2" />
+    <bpmn:messageFlow id="message1-flow-2" sourceRef="send-message-1" targetRef="start-event-2" />
+    <bpmn:messageFlow id="message3-flow" sourceRef="end-event-3" targetRef="wait-for-message-3" />
+    <bpmn:messageFlow id="message2-flow-3" sourceRef="end-event-2" targetRef="start-event-3" />
+  </bpmn:collaboration>
+  <bpmn:process id="process-1" name="sender" isExecutable="true">
+    <bpmn:intermediateThrowEvent id="send-message-1">
+      <bpmn:incoming>flow-1-1</bpmn:incoming>
+      <bpmn:outgoing>flow-1-2</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_08rj4x4" messageRef="Message_31cj6gk">
+        <bpmn:extensionElements>
+          <camunda:field name="field1">
+            <camunda:expression>${environment.variables.input1}</camunda:expression>
+          </camunda:field>
+          <camunda:field name="field2">
+            <camunda:string>fixed string field</camunda:string>
+          </camunda:field>
+        </bpmn:extensionElements>
+      </bpmn:messageEventDefinition>
+    </bpmn:intermediateThrowEvent>
+    <bpmn:sequenceFlow id="flow-1-1" sourceRef="start-event-1" targetRef="send-message-1" />
+    <bpmn:sequenceFlow id="flow-1-2" sourceRef="send-message-1" targetRef="GatewayWaitBoth" />
+    <bpmn:sequenceFlow id="flow1-3" sourceRef="wait-for-message2" targetRef="GatewayAllMessagesArrived" />
+    <bpmn:sequenceFlow id="flow1-6" sourceRef="GatewayWaitBoth" targetRef="wait-for-message2" />
+    <bpmn:sequenceFlow id="flow1-4" sourceRef="GatewayWaitBoth" targetRef="wait-for-message-3" />
+    <bpmn:sequenceFlow id="flow1-7" sourceRef="GatewayAllMessagesArrived" targetRef="end-event-1" />
+    <bpmn:sequenceFlow id="flow1-5" sourceRef="wait-for-message-3" targetRef="GatewayAllMessagesArrived" />
+    <bpmn:intermediateCatchEvent id="wait-for-message2">
+      <bpmn:incoming>flow1-6</bpmn:incoming>
+      <bpmn:outgoing>flow1-3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_14syzl9" messageRef="Message_31j4nbr" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:parallelGateway id="GatewayWaitBoth">
+      <bpmn:incoming>flow-1-2</bpmn:incoming>
+      <bpmn:outgoing>flow1-6</bpmn:outgoing>
+      <bpmn:outgoing>flow1-4</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:startEvent id="start-event-1">
+      <bpmn:outgoing>flow-1-1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:intermediateCatchEvent id="wait-for-message-3">
+      <bpmn:incoming>flow1-4</bpmn:incoming>
+      <bpmn:outgoing>flow1-5</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0ye6epb" messageRef="Message_27mfd1q" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:parallelGateway id="GatewayAllMessagesArrived">
+      <bpmn:incoming>flow1-3</bpmn:incoming>
+      <bpmn:incoming>flow1-5</bpmn:incoming>
+      <bpmn:outgoing>flow1-7</bpmn:outgoing>
+    </bpmn:parallelGateway>
+    <bpmn:endEvent id="end-event-1">
+      <bpmn:incoming>flow1-7</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:process id="process-2" name="receiver-2" isExecutable="true">
+    <bpmn:startEvent id="start-event-2">
+      <bpmn:outgoing>Flow_01264xg</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0hb06ok" messageRef="Message_31cj6gk" />
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_01264xg" sourceRef="start-event-2" targetRef="end-event-2" />
+    <bpmn:endEvent id="end-event-2">
+      <bpmn:incoming>Flow_01264xg</bpmn:incoming>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_1eoh1cw" messageRef="Message_31j4nbr" />
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:message id="Message_31cj6gk" name="Message1" />
+  <bpmn:message id="Message_31j4nbr" name="Message2" />
+  <bpmn:process id="process-3" name="receiver-3" isExecutable="true">
+    <bpmn:sequenceFlow id="flow3-1" sourceRef="start-event-3" targetRef="end-event-3" />
+    <bpmn:startEvent id="start-event-3">
+      <bpmn:outgoing>flow3-1</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_0pixtkg" messageRef="Message_31j4nbr" />
+    </bpmn:startEvent>
+    <bpmn:endEvent id="end-event-3">
+      <bpmn:incoming>flow3-1</bpmn:incoming>
+      <bpmn:messageEventDefinition id="MessageEventDefinition_1h8qi9z" messageRef="Message_27mfd1q" />
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmn:message id="Message_27mfd1q" name="Message3" />
+  <bpmn:message id="Message_001k7sr" name="Message4" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="collaboration">
+      <bpmndi:BPMNShape id="Participant_1tfqi45_di" bpmnElement="participant-2" isHorizontal="true">
+        <dc:Bounds x="129" y="350" width="621" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_1jf6t1l_di" bpmnElement="start-event-2">
+        <dc:Bounds x="292" y="472" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_17teaqu_di" bpmnElement="end-event-2">
+        <dc:Bounds x="472" y="472" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_01264xg_di" bpmnElement="Flow_01264xg">
+        <di:waypoint x="328" y="490" />
+        <di:waypoint x="472" y="490" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_06maanq_di" bpmnElement="participant-1" isHorizontal="true">
+        <dc:Bounds x="129" y="80" width="621" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0ugwuet_di" bpmnElement="send-message-1">
+        <dc:Bounds x="292" y="169" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0vh1p9n_di" bpmnElement="wait-for-message2">
+        <dc:Bounds x="472" y="169" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0urp9ot_di" bpmnElement="GatewayWaitBoth">
+        <dc:Bounds x="375" y="162" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="start-event-1">
+        <dc:Bounds x="212" y="169" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_05dbt0d_di" bpmnElement="wait-for-message-3">
+        <dc:Bounds x="562" y="272" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_104ydf8_di" bpmnElement="GatewayAllMessagesArrived">
+        <dc:Bounds x="555" y="162" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0m918p3_di" bpmnElement="end-event-1">
+        <dc:Bounds x="652" y="169" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0enxcho_di" bpmnElement="flow-1-1">
+        <di:waypoint x="248" y="187" />
+        <di:waypoint x="292" y="187" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18h857x_di" bpmnElement="flow-1-2">
+        <di:waypoint x="328" y="187" />
+        <di:waypoint x="375" y="187" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1rne2f8_di" bpmnElement="flow1-3">
+        <di:waypoint x="508" y="187" />
+        <di:waypoint x="555" y="187" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0jmtynf_di" bpmnElement="flow1-6">
+        <di:waypoint x="425" y="187" />
+        <di:waypoint x="472" y="187" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_158268g_di" bpmnElement="flow1-4">
+        <di:waypoint x="400" y="212" />
+        <di:waypoint x="400" y="290" />
+        <di:waypoint x="562" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0v70lwc_di" bpmnElement="flow1-7">
+        <di:waypoint x="605" y="187" />
+        <di:waypoint x="652" y="187" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0nvd25p_di" bpmnElement="flow1-5">
+        <di:waypoint x="580" y="272" />
+        <di:waypoint x="580" y="212" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="Participant_08vhhbf_di" bpmnElement="participant-3" isHorizontal="true">
+        <dc:Bounds x="129" y="620" width="621" height="250" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_01jl1kl_di" bpmnElement="start-event-3">
+        <dc:Bounds x="472" y="732" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0ydkeng_di" bpmnElement="end-event-3">
+        <dc:Bounds x="562" y="732" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0dy9bvk_di" bpmnElement="flow3-1">
+        <di:waypoint x="508" y="750" />
+        <di:waypoint x="562" y="750" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_08664in_di" bpmnElement="message2-flow-1">
+        <di:waypoint x="490" y="472" />
+        <di:waypoint x="490" y="205" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1ey4zse_di" bpmnElement="message1-flow-2">
+        <di:waypoint x="310" y="205" />
+        <di:waypoint x="310" y="472" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0c7y6cy_di" bpmnElement="message3-flow">
+        <di:waypoint x="580" y="732" />
+        <di:waypoint x="580" y="308" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1qk6u48_di" bpmnElement="message2-flow-3">
+        <di:waypoint x="490" y="508" />
+        <di:waypoint x="490" y="732" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

@@ -1,7 +1,7 @@
 'use strict';
 
 const Parameter = require('../../../resources/camunda/Parameter');
-const {getEngine} = require('../../helpers/testHelpers');
+const {getEngine, fakeEngine} = require('../../helpers/testHelpers');
 
 describe('Parameter', () => {
   let engine;
@@ -22,11 +22,11 @@ describe('Parameter', () => {
             value: '${listing}'
           }]
         }
-      }, { expressions: {
+      }, fakeEngine({ expressions: {
         resolveExpression: function(expr) {
           if (expr === '${listing}') return 1;
         }}
-      });
+      }));
 
       expect(parm.activate({
         listing: 1
@@ -62,11 +62,11 @@ describe('Parameter', () => {
             value: '${listing}'
           }]
         }
-      }, { expressions: {
+      }, fakeEngine({ expressions: {
         resolveExpression: function(expr) {
           if (expr === '${listing}') return 1;
         }}
-      });
+      }));
 
       expect(parm.activate({listing: 1}).get()).to.eql({value: 1});
 
@@ -80,9 +80,9 @@ describe('Parameter', () => {
         definition: {
           $type: 'camunda:map'
         }
-      }, { expressions: { resolveExpression: () => {
+      }, fakeEngine({ expressions: { resolveExpression: () => {
         return null;
-      }}});
+      }}}));
 
       expect(parm.activate({listing: 1}).get()).to.equal(1);
 

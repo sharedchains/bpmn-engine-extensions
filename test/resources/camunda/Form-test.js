@@ -5,7 +5,7 @@ const {getEngine, getProcess, initEngine, testEngine} = require('../../helpers/t
 const { saveOutputToEnv } = require('../../helpers/extensionsHacks');
 const EventEmitter2 = require('eventemitter2');
 const { uniqueID } = require('mocha/lib/utils');
-const { assert, expect } = require('chai');
+const { expect } = require('chai');
 
 describe('Camunda Forms', () => {
   describe('behaviour', () => {
@@ -225,15 +225,6 @@ describe('Camunda Forms', () => {
             rej(ex);
           }
         });
-        /*
-        engine.on('end', ({environment}) => {
-          expect(environment.output).to.deep.equal({
-            start: { suggestedStartDate: tomorrow },
-            userTask: { startDate: dayAfterTomorrow }
-          });
-
-        });
-        */
         engine.broker.subscribeTmp('run', '#', (_, message) => {
           if (message.content.error) {
             rej(message.content.error);

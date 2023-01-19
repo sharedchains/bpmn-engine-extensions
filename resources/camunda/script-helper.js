@@ -30,6 +30,7 @@ function execute(script, context, callback) {
   const executionContext = Object.assign({}, context);
 
   if (callback) {
+    console.log('>>>> HAS CALLBACK');
     executionContext.next = next(callback);
   }
 
